@@ -145,6 +145,8 @@ Deno.serve(async (req: Request) => {
         const emailTo = emailMatch ? emailMatch[0] : metadata?.email || "user@example.com";
         const clientId = clientMatch ? parseInt(clientMatch[1]) : metadata?.lastClientId;
 
+        console.log('Email request - clientId:', clientId, 'emailTo:', emailTo);
+
         const queryResponse = await fetch(
           `${supabaseUrl}/functions/v1/transaction-query`,
           {
@@ -153,7 +155,7 @@ Deno.serve(async (req: Request) => {
               "Content-Type": "application/json",
               Authorization: `Bearer ${supabaseKey}`,
             },
-            body: JSON.stringify({ clientId }),
+            body: JSON.stringify({ query: `transactions for client ${clientId}`, clientId }),
           }
         );
 
@@ -207,7 +209,7 @@ Deno.serve(async (req: Request) => {
               "Content-Type": "application/json",
               Authorization: `Bearer ${supabaseKey}`,
             },
-            body: JSON.stringify({ clientId }),
+            body: JSON.stringify({ query, clientId }),
           }
         );
 
