@@ -46,6 +46,7 @@ export default function SimpleApp() {
     language: string;
   }>({ language: 'en' });
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [lastClientId, setLastClientId] = useState<number | null>(null);
 
   const [metrics, setMetrics] = useState({
     totalLatency: 0,
@@ -69,8 +70,15 @@ export default function SimpleApp() {
     setIsLoading(true);
 
     try {
-      const response = await processWithAgent({ query });
+      const response = await processWithAgent({
+        query,
+        metadata: { lastClientId }
+      });
       console.log('Agent response:', response);
+
+      if (response.metadata?.lastClientId) {
+        setLastClientId(response.metadata.lastClientId);
+      }
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
@@ -149,8 +157,15 @@ export default function SimpleApp() {
     setIsLoading(true);
 
     try {
-      const response = await processWithAgent({ query: text });
+      const response = await processWithAgent({
+        query: text,
+        metadata: { lastClientId }
+      });
       console.log('Voice Agent response:', response);
+
+      if (response.metadata?.lastClientId) {
+        setLastClientId(response.metadata.lastClientId);
+      }
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),

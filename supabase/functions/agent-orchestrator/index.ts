@@ -27,10 +27,24 @@ type Intent =
   | "chart"
   | "api_status"
   | "web"
+  | "transaction_query"
+  | "transaction_chart"
+  | "transaction_email"
   | "general";
 
 function classifyIntent(query: string): Intent {
   const lowerQuery = query.toLowerCase();
+
+  if (lowerQuery.match(/\b(email|send|mail)\b/) && (lowerQuery.match(/\b(report|transaction|above)\b/) || lowerQuery.includes('@'))) {
+    return "transaction_email";
+  }
+
+  if (lowerQuery.match(/\b(transaction|client|purchase|refund|payment)\b/)) {
+    if (lowerQuery.match(/\b(chart|plot|graph|visualize|trend)\b/)) {
+      return "transaction_chart";
+    }
+    return "transaction_query";
+  }
 
   if (lowerQuery.match(/\b(chart|plot|graph|visualize|trend)\b/)) {
     return "chart";
@@ -121,6 +135,123 @@ Deno.serve(async (req: Request) => {
     };
 
     switch (intent) {
+      case "transaction_email": {
+        steps.push({ name: "Email Report", latency: 0, timestamp: Date.now() });
+        const emailStart = Date.now();
+
+        const emailMatch = query.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/);
+        const clientMatch = query.match(/client\s*(\d+)/i) || query.match(/(\d{4})/);
+
+        const emailTo = emailMatch ? emailMatch[0] : metadata?.email || "user@example.com";
+        const clientId = clientMatch ? parseInt(clientMatch[1]) : metadata?.lastClientId;
+
+        const queryResponse = await fetch(
+          `${supabaseUrl}/functions/v1/transaction-query`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({ clientId }),
+          }
+        );
+
+        if (queryResponse.ok) {
+          const queryData = await queryResponse.json();
+
+          const emailResponse = await fetch(
+            `${supabaseUrl}/functions/v1/transaction-email`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${supabaseKey}`,
+              },
+              body: JSON.stringify({
+                to: emailTo,
+                subject: "Transaction Intelligence Report",
+                transactionSummary: queryData.summary,
+              }),
+            }
+          );
+
+          if (emailResponse.ok) {
+            const emailData = await emailResponse.json();
+            response.content = emailData.voiceSummary || `Transaction report sent to ${emailTo}`;
+            response.tableData = queryData.summary;
+            response.sources = ["DB", "EMAIL"];
+            steps[steps.length - 1].latency = Date.now() - emailStart;
+          } else {
+            response.content = `I found the transaction data but couldn't send the email. Please make sure RESEND_API_KEY is configured.`;
+            response.tableData = queryData.summary;
+            response.sources = ["DB"];
+            steps[steps.length - 1].latency = Date.now() - emailStart;
+          }
+        }
+        break;
+      }
+
+      case "transaction_query": {
+        steps.push({ name: "Transaction Query", latency: 0, timestamp: Date.now() });
+        const queryStart = Date.now();
+
+        const clientMatch = query.match(/client\s*(\d+)/i) || query.match(/(\d{4})/);
+        const clientId = clientMatch ? parseInt(clientMatch[1]) : null;
+
+        const queryResponse = await fetch(
+          `${supabaseUrl}/functions/v1/transaction-query`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({ clientId }),
+          }
+        );
+
+        if (queryResponse.ok) {
+          const queryData = await queryResponse.json();
+          response.content = queryData.voiceSummary || "Transaction data retrieved.";
+          response.tableData = queryData.summary;
+          response.sources = ["DB"];
+          response.metadata.lastClientId = clientId;
+          steps[steps.length - 1].latency = Date.now() - queryStart;
+        }
+        break;
+      }
+
+      case "transaction_chart": {
+        steps.push({ name: "Transaction Chart", latency: 0, timestamp: Date.now() });
+        const chartStart = Date.now();
+
+        const clientMatch = query.match(/client\s*(\d+)/i) || query.match(/(\d{4})/);
+        const clientId = clientMatch ? parseInt(clientMatch[1]) : null;
+
+        const chartResponse = await fetch(
+          `${supabaseUrl}/functions/v1/transaction-chart`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({ clientId }),
+          }
+        );
+
+        if (chartResponse.ok) {
+          const chartData = await chartResponse.json();
+          response.content = chartData.voiceSummary || "Chart generated successfully.";
+          response.chartData = chartData.chartData;
+          response.sources = ["DB"];
+          response.metadata.lastClientId = clientId;
+          steps[steps.length - 1].latency = Date.now() - chartStart;
+        }
+        break;
+      }
+
       case "doc_rag": {
         steps.push({ name: "RAG Agent", latency: 0, timestamp: Date.now() });
         const ragStart = Date.now();

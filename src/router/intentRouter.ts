@@ -18,12 +18,29 @@ const EMAIL_KEYWORDS = ['email', 'send', 'mail', 'report to'];
 export function classifyIntent(query: string): IntentResult {
   const lowerQuery = query.toLowerCase();
 
-  if (containsKeywords(lowerQuery, EMAIL_KEYWORDS) && containsKeywords(lowerQuery, TRANSACTION_KEYWORDS)) {
+  if (containsKeywords(lowerQuery, EMAIL_KEYWORDS) || lowerQuery.includes('send') && lowerQuery.includes('report')) {
+    const params: any = {};
+
+    const emailMatch = lowerQuery.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/);
+    if (emailMatch) {
+      params.email = emailMatch[0];
+    }
+
+    const clientMatch = lowerQuery.match(/client\s*(\d+)/);
+    const ipLikeMatch = lowerQuery.match(/client\s*(\d+)\.(\d+)\.(\d+)\.(\d+)/);
+
+    if (ipLikeMatch) {
+      params.clientId = parseInt(ipLikeMatch[1] + ipLikeMatch[2] + ipLikeMatch[3] + ipLikeMatch[4]);
+    } else if (clientMatch) {
+      params.clientId = parseInt(clientMatch[1]);
+    }
+
     return {
       intent: 'transaction_email',
       confidence: 0.95,
       sources: ['DB', 'EMAIL'],
       reasoning: 'Query requests email report for transactions',
+      params,
     };
   }
 
