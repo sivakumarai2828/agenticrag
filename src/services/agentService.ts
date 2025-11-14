@@ -55,6 +55,7 @@ export async function processWithAgent(request: AgentRequest): Promise<AgentResp
         metadata: {
           totalLatency: Date.now() - startTime,
           timestamp: Date.now(),
+          lastClientId: intentResult.params?.clientId,
         },
       };
     }
@@ -79,36 +80,7 @@ export async function processWithAgent(request: AgentRequest): Promise<AgentResp
         metadata: {
           totalLatency: Date.now() - startTime,
           timestamp: Date.now(),
-        },
-      };
-    }
-
-    if (intentResult.intent === 'transaction_email') {
-      const queryResult = await queryTransactions({
-        query: request.query,
-        ...intentResult.params,
-      });
-
-      const emailResult = await emailTransactionReport({
-        to: request.metadata?.email || 'user@example.com',
-        subject: 'Transaction Intelligence Report',
-        transactionSummary: queryResult.summary,
-      });
-
-      return {
-        content: emailResult.voiceSummary,
-        intent: 'transaction_email',
-        sources: ['DB', 'EMAIL'],
-        citations: [],
-        tableData: queryResult.summary,
-        traceSteps: [
-          { name: 'Intent Classification', latency: 50, timestamp: startTime },
-          { name: 'Transaction Query', latency: 150, timestamp: startTime + 50 },
-          { name: 'Email Delivery', latency: 200, timestamp: startTime + 200 },
-        ],
-        metadata: {
-          totalLatency: Date.now() - startTime,
-          timestamp: Date.now(),
+          lastClientId: intentResult.params?.clientId,
         },
       };
     }
