@@ -430,16 +430,22 @@ Deno.serve(async (req: Request) => {
     };
 
     socket.onclose = () => {
-      console.log("Client disconnected");
-      if (openaiWs?.readyState === WebSocket.OPEN) {
-        openaiWs.close();
+      console.log("Client disconnected - closing OpenAI connection");
+      if (openaiWs) {
+        if (openaiWs.readyState === WebSocket.OPEN || openaiWs.readyState === WebSocket.CONNECTING) {
+          openaiWs.close(1000, "Client disconnected");
+        }
+        openaiWs = null;
       }
     };
 
     socket.onerror = (error) => {
       console.error("Client WebSocket error:", error);
-      if (openaiWs?.readyState === WebSocket.OPEN) {
-        openaiWs.close();
+      if (openaiWs) {
+        if (openaiWs.readyState === WebSocket.OPEN || openaiWs.readyState === WebSocket.CONNECTING) {
+          openaiWs.close(1000, "Client error");
+        }
+        openaiWs = null;
       }
     };
 
