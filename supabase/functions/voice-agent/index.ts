@@ -46,6 +46,29 @@ const TRANSACTION_TOOLS = [
       required: ["clientId"],
     },
   },
+  {
+    type: "function",
+    name: "send_email_report",
+    description: "Send a transaction report via email to a specified recipient. Use this when users ask to email or send reports.",
+    parameters: {
+      type: "object",
+      properties: {
+        to: {
+          type: "string",
+          description: "Email address of the recipient",
+        },
+        subject: {
+          type: "string",
+          description: "Subject line for the email",
+        },
+        clientId: {
+          type: "number",
+          description: "Client ID to generate the report for",
+        },
+      },
+      required: ["to", "clientId"],
+    },
+  },
 ];
 
 async function executeFunction(functionName: string, args: any): Promise<any> {
@@ -102,6 +125,50 @@ async function executeFunction(functionName: string, args: any): Promise<any> {
     const result = await response.json();
     console.log("Chart generation result:", result);
     return result;
+  } else if (functionName === "send_email_report") {
+    const queryResponse = await fetch(
+      `${supabaseUrl}/functions/v1/transaction-query`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({ clientId: args.clientId }),
+      }
+    );
+
+    if (!queryResponse.ok) {
+      throw new Error(`Failed to query transactions: ${queryResponse.statusText}`);
+    }
+
+    const queryResult = await queryResponse.json();
+
+    const emailResponse = await fetch(
+      `${supabaseUrl}/functions/v1/transaction-email`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          to: args.to,
+          subject: args.subject || "Transaction Intelligence Report",
+          transactionSummary: queryResult.summary,
+        }),
+      }
+    );
+
+    if (!emailResponse.ok) {
+      const errorText = await emailResponse.text();
+      console.error("Email sending failed:", errorText);
+      throw new Error(`Failed to send email: ${emailResponse.statusText}`);
+    }
+
+    const emailResult = await emailResponse.json();
+    console.log("Email sent successfully:", emailResult);
+    return emailResult;
   }
 
   throw new Error(`Unknown function: ${functionName}`);
@@ -162,7 +229,7 @@ Deno.serve(async (req: Request) => {
             type: "session.update",
             session: {
               modalities: ["text", "audio"],
-              instructions: "You are a helpful financial assistant that helps users query transaction data. When users ask about transactions, use the available functions to fetch real data from the database. Always call the query_transactions function when users mention client IDs or ask about transactions. Provide clear, concise responses about what you found, including the number of transactions, total amount, and status breakdown.",
+              instructions: "You are a helpful financial assistant that helps users query transaction data. When users ask about transactions, use the available functions to fetch real data from the database. Always call the query_transactions function when users mention client IDs or ask about transactions. When users request to send emails or reports, use the send_email_report function. Provide clear, concise responses about what you found, including the number of transactions, total amount, and status breakdown.",
               voice: "alloy",
               input_audio_format: "pcm16",
               output_audio_format: "pcm16",
