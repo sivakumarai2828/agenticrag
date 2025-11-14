@@ -161,6 +161,8 @@ Deno.serve(async (req: Request) => {
 
         if (queryResponse.ok) {
           const queryData = await queryResponse.json();
+          console.log('Query data received:', JSON.stringify(queryData, null, 2));
+          console.log('Summary to email:', JSON.stringify(queryData.summary, null, 2));
 
           const emailResponse = await fetch(
             `${supabaseUrl}/functions/v1/transaction-email`,
@@ -180,12 +182,15 @@ Deno.serve(async (req: Request) => {
 
           if (emailResponse.ok) {
             const emailData = await emailResponse.json();
+            console.log('Email sent successfully:', emailData);
             response.content = emailData.voiceSummary || `Transaction report sent to ${emailTo}`;
             response.tableData = queryData.summary;
             response.sources = ["DB", "EMAIL"];
             steps[steps.length - 1].latency = Date.now() - emailStart;
           } else {
-            response.content = `I found the transaction data but couldn't send the email. Please make sure RESEND_API_KEY is configured.`;
+            const emailError = await emailResponse.json();
+            console.error('Email send failed:', emailError);
+            response.content = `I found the transaction data but couldn't send the email: ${emailError.error || 'Unknown error'}`;
             response.tableData = queryData.summary;
             response.sources = ["DB"];
             steps[steps.length - 1].latency = Date.now() - emailStart;
