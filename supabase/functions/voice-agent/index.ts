@@ -90,7 +90,10 @@ async function executeFunction(functionName: string, args: any): Promise<any> {
           "Content-Type": "application/json",
           Authorization: `Bearer ${supabaseKey}`,
         },
-        body: JSON.stringify(args),
+        body: JSON.stringify({
+          ...args,
+          query: `transactions query for client ${args.clientId || 'all'}`
+        }),
       }
     );
 
@@ -134,7 +137,10 @@ async function executeFunction(functionName: string, args: any): Promise<any> {
           "Content-Type": "application/json",
           Authorization: `Bearer ${supabaseKey}`,
         },
-        body: JSON.stringify({ clientId: args.clientId }),
+        body: JSON.stringify({
+          query: `transactions for client ${args.clientId}`,
+          clientId: args.clientId
+        }),
       }
     );
 
