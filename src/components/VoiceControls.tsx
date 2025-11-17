@@ -761,6 +761,90 @@ export default function VoiceControls({
             console.error('Error calling generate_transaction_chart:', error);
             pendingFunctionCallRef.current = false;
           }
+        } else if (event.name === 'send_email_report') {
+          pendingFunctionCallRef.current = true;
+          try {
+            const args = JSON.parse(event.arguments);
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+            console.log('Sending email report for client:', args.clientId, 'to:', args.to);
+
+            const queryResponse = await fetch(
+              `${supabaseUrl}/functions/v1/transaction-query`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${supabaseKey}`,
+                },
+                body: JSON.stringify({
+                  query: `transactions for client ${args.clientId}`,
+                  clientId: args.clientId
+                }),
+              }
+            );
+
+            if (!queryResponse.ok) {
+              throw new Error(`Transaction query failed: ${queryResponse.statusText}`);
+            }
+
+            const queryResult = await queryResponse.json();
+
+            const emailResponse = await fetch(
+              `${supabaseUrl}/functions/v1/transaction-email`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${supabaseKey}`,
+                },
+                body: JSON.stringify({
+                  to: args.to,
+                  subject: args.subject || 'Transaction Intelligence Report',
+                  transactionSummary: queryResult.summary,
+                }),
+              }
+            );
+
+            if (!emailResponse.ok) {
+              throw new Error(`Email sending failed: ${emailResponse.statusText}`);
+            }
+
+            const result = await emailResponse.json();
+            console.log('Email sent successfully:', result);
+
+            responseSourcesRef.current = ['EMAIL'];
+
+            if (onAssistantMessage && result.success) {
+              onAssistantMessage(
+                `Email report sent successfully to ${args.to}`,
+                ['EMAIL'],
+                undefined,
+                undefined
+              );
+            }
+
+            if (dataChannelRef.current?.readyState === 'open') {
+              dataChannelRef.current.send(JSON.stringify({
+                type: 'conversation.item.create',
+                item: {
+                  type: 'function_call_output',
+                  call_id: event.call_id,
+                  output: JSON.stringify(result),
+                },
+              }));
+
+              dataChannelRef.current.send(JSON.stringify({
+                type: 'response.create',
+              }));
+            }
+
+            pendingFunctionCallRef.current = false;
+          } catch (error) {
+            console.error('Error calling send_email_report:', error);
+            pendingFunctionCallRef.current = false;
+          }
         } else if (event.name === 'search_documents') {
           try {
             const args = JSON.parse(event.arguments);
@@ -1046,6 +1130,44 @@ export default function VoiceControls({
                   description: 'Filter by transaction status',
                 },
               },
+            },
+          },
+          {
+            type: 'function',
+            name: 'send_email_report',
+            description: 'Send a transaction report via email to a specified recipient. Use this when users ask to email or send transaction reports.',
+            parameters: {
+              type: 'object',
+              properties: {
+                to: {
+                  type: 'string',
+                  description: 'Email address of the recipient',
+                },
+                subject: {
+                  type: 'string',
+                  description: 'Subject line for the email',
+                },
+                clientId: {
+                  type: 'number',
+                  description: 'Client ID to generate the report for',
+                },
+              },
+              required: ['to', 'clientId'],
+            },
+          },
+          {
+            type: 'function',
+            name: 'generate_transaction_chart',
+            description: 'Generate a chart visualization of transaction trends over time for a specific client.',
+            parameters: {
+              type: 'object',
+              properties: {
+                clientId: {
+                  type: 'number',
+                  description: 'The client ID to generate chart for',
+                },
+              },
+              required: ['clientId'],
             },
           },
         ],
