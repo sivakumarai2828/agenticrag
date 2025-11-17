@@ -268,7 +268,9 @@ export default function VoiceControls({
       setStatus('connecting');
       console.log('Connecting to Pipecat WebSocket...');
 
-      const ws = new WebSocket('wss://pipecat-speech2speech.onrender.com/ws');
+      // Use environment variable or replace with your deployed backend URL
+      const pipecatBackendUrl = import.meta.env.VITE_PIPECAT_BACKEND_URL || 'ws://localhost:8000/ws';
+      const ws = new WebSocket(pipecatBackendUrl);
       pipecatWsRef.current = ws;
 
       const audioContext = new AudioContext({ sampleRate: 16000 });
