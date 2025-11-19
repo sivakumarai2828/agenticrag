@@ -63,7 +63,7 @@ export async function processWithAgent(request: AgentRequest): Promise<AgentResp
     if (intentResult.intent === 'transaction_chart') {
       const result = await generateTransactionChart({
         query: request.query,
-        chartType: 'bar',
+        chartType: intentResult.params?.chartType || 'bar',
         ...intentResult.params,
       });
 

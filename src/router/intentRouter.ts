@@ -72,6 +72,18 @@ export function classifyIntent(query: string): IntentResult {
                           lowerQuery.includes('trend') ||
                           lowerQuery.includes('pattern');
 
+    if (isChartRequest) {
+      if (lowerQuery.includes('pie')) {
+        params.chartType = 'pie';
+      } else if (lowerQuery.includes('line')) {
+        params.chartType = 'line';
+      } else if (lowerQuery.includes('bar')) {
+        params.chartType = 'bar';
+      } else {
+        params.chartType = 'bar';
+      }
+    }
+
     return {
       intent: isChartRequest ? 'transaction_chart' : 'transaction_query',
       confidence: 0.92,

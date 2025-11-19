@@ -1251,7 +1251,7 @@ export default function VoiceControls({
           {
             type: 'function',
             name: 'generate_transaction_chart',
-            description: 'Generate a chart visualization of transaction data. Supports bar chart (amount over time), line chart (trends), and pie chart (status distribution). Use this when users ask for charts, graphs, or visualizations.',
+            description: 'Generate a chart visualization of transaction data. IMPORTANT: If user says "pie chart" or "pie", set chartType to "pie". If user says "line chart" or "line", set chartType to "line". If user says "bar chart" or "bar", set chartType to "bar". Default is bar chart.',
             parameters: {
               type: 'object',
               properties: {
@@ -1262,8 +1262,7 @@ export default function VoiceControls({
                 chartType: {
                   type: 'string',
                   enum: ['bar', 'line', 'pie'],
-                  description: 'Type of chart: bar (default, amount over time), line (trends), pie (status distribution)',
-                  default: 'bar',
+                  description: 'Type of chart to generate: "pie" for status distribution (use when user says pie chart), "line" for trend lines (use when user says line chart), "bar" for amount over time bars (use when user says bar chart or as default)',
                 },
                 dateFrom: {
                   type: 'string',
