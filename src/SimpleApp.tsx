@@ -146,9 +146,10 @@ export default function SimpleApp() {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
 
-    // When voice is connected, OpenAI handles everything - don't process locally
-    if (isVoiceConnected) {
-      console.log('Voice connected - OpenAI will handle response');
+    // When voice is enabled, OpenAI handles everything - don't process locally
+    console.log('Voice transcript received:', text, 'isVoiceConnected:', isVoiceConnected, 'voiceEnabled:', voiceEnabled);
+    if (voiceEnabled) {
+      console.log('Voice mode active - OpenAI will handle response');
       return;
     }
 
