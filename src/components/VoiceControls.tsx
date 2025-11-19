@@ -735,7 +735,15 @@ export default function VoiceControls({
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
             const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-            console.log('Generating chart for client:', args.clientId);
+            console.log('📊 CHART FUNCTION CALLED - Client:', args.clientId, '| Type:', args.chartType || 'bar', '| Full args:', JSON.stringify(args));
+
+            const chartPayload = {
+              query: `transactions for client ${args.clientId}`,
+              clientId: args.clientId,
+              chartType: args.chartType || 'bar',
+              dateFrom: args.dateFrom,
+              dateTo: args.dateTo,
+            };
 
             const response = await fetch(
               `${supabaseUrl}/functions/v1/transaction-chart`,
@@ -745,7 +753,7 @@ export default function VoiceControls({
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${supabaseKey}`,
                 },
-                body: JSON.stringify(args),
+                body: JSON.stringify(chartPayload),
               }
             );
 
@@ -1148,7 +1156,7 @@ export default function VoiceControls({
       type: 'session.update',
       session: {
         modalities: ['text', 'audio'],
-        instructions: 'You are a helpful AI assistant that helps users query their data, documents, and transactions. When users ask about transactions, client data, or financial information, use the query_transactions function. When users ask questions about documents, use the search_documents function. When users ask to email a report WITHOUT specifying an email address, use sivakumarai2828@gmail.com as the default recipient. Keep responses concise and actionable.',
+        instructions: 'You are a helpful AI assistant that helps users query their data, documents, and transactions. When users ask about transactions, client data, or financial information, use the query_transactions function. When users ask questions about documents, use the search_documents function. When users ask to email a report WITHOUT specifying an email address, use sivakumarai2828@gmail.com as the default recipient. When users ask for charts or visualizations: use "bar" for amounts over time, "line" for trends, "pie" for status distribution. Keep responses concise and actionable.',
         voice: 'alloy',
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
@@ -1243,13 +1251,27 @@ export default function VoiceControls({
           {
             type: 'function',
             name: 'generate_transaction_chart',
-            description: 'Generate a chart visualization of transaction trends over time for a specific client.',
+            description: 'Generate a chart visualization of transaction data. Supports bar chart (amount over time), line chart (trends), and pie chart (status distribution). Use this when users ask for charts, graphs, or visualizations.',
             parameters: {
               type: 'object',
               properties: {
                 clientId: {
                   type: 'number',
                   description: 'The client ID to generate chart for',
+                },
+                chartType: {
+                  type: 'string',
+                  enum: ['bar', 'line', 'pie'],
+                  description: 'Type of chart: bar (default, amount over time), line (trends), pie (status distribution)',
+                  default: 'bar',
+                },
+                dateFrom: {
+                  type: 'string',
+                  description: 'Start date filter in YYYY-MM-DD format (optional)',
+                },
+                dateTo: {
+                  type: 'string',
+                  description: 'End date filter in YYYY-MM-DD format (optional)',
                 },
               },
               required: ['clientId'],
