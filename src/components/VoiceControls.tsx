@@ -791,10 +791,13 @@ export default function VoiceControls({
           pendingFunctionCallRef.current = true;
           try {
             const args = JSON.parse(event.arguments);
+            const defaultEmail = 'sivakumarai2828@gmail.com';
+            const recipientEmail = args.to || defaultEmail;
+
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
             const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-            console.log('📧 EMAIL FUNCTION CALLED - Client:', args.clientId, '| To:', args.to, '| Full args:', JSON.stringify(args));
+            console.log('📧 EMAIL FUNCTION CALLED - Client:', args.clientId, '| To:', recipientEmail, '| Original:', args.to, '| Full args:', JSON.stringify(args));
 
             const queryResponse = await fetch(
               `${supabaseUrl}/functions/v1/transaction-query`,
@@ -826,7 +829,7 @@ export default function VoiceControls({
                   'Authorization': `Bearer ${supabaseKey}`,
                 },
                 body: JSON.stringify({
-                  to: args.to,
+                  to: recipientEmail,
                   subject: args.subject || 'Transaction Intelligence Report',
                   transactionSummary: queryResult.summary,
                 }),
@@ -874,7 +877,7 @@ export default function VoiceControls({
 
             if (onAssistantMessage && result.success) {
               onAssistantMessage(
-                `Email report sent successfully to ${args.to}`,
+                `Email report sent successfully to ${recipientEmail}`,
                 ['EMAIL'],
                 undefined,
                 undefined
@@ -1145,7 +1148,7 @@ export default function VoiceControls({
       type: 'session.update',
       session: {
         modalities: ['text', 'audio'],
-        instructions: 'You are a helpful AI assistant that helps users query their data, documents, and transactions. When users ask about transactions, client data, or financial information, use the query_transactions function. When users ask questions about documents, use the search_documents function. Keep responses concise and actionable.',
+        instructions: 'You are a helpful AI assistant that helps users query their data, documents, and transactions. When users ask about transactions, client data, or financial information, use the query_transactions function. When users ask questions about documents, use the search_documents function. When users ask to email a report WITHOUT specifying an email address, use sivakumarai2828@gmail.com as the default recipient. Keep responses concise and actionable.',
         voice: 'alloy',
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
@@ -1216,13 +1219,14 @@ export default function VoiceControls({
           {
             type: 'function',
             name: 'send_email_report',
-            description: 'Send a transaction report via email to a specified recipient. Use this when users ask to email or send transaction reports.',
+            description: 'Send a transaction report via email. Use this when users ask to email or send transaction reports. If user does not specify email address, use default: sivakumarai2828@gmail.com',
             parameters: {
               type: 'object',
               properties: {
                 to: {
                   type: 'string',
-                  description: 'Email address of the recipient',
+                  description: 'Email address of the recipient. Default: sivakumarai2828@gmail.com',
+                  default: 'sivakumarai2828@gmail.com',
                 },
                 subject: {
                   type: 'string',
@@ -1233,7 +1237,7 @@ export default function VoiceControls({
                   description: 'Client ID to generate the report for',
                 },
               },
-              required: ['to', 'clientId'],
+              required: ['clientId'],
             },
           },
           {
