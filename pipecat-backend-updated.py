@@ -268,11 +268,12 @@ class FunctionCallProcessor(FrameProcessor):
         await super().process_frame(frame, direction)
 
         if isinstance(frame, FunctionCallInProgressFrame):
-            logger.info(f"🔧 Function call detected: {frame.function_name}")
+            logger.info(f"🔧 FUNCTION CALL DETECTED: {frame.function_name} with args: {frame.arguments}")
 
             try:
                 # Execute the function
                 result = await execute_function(frame.function_name, frame.arguments)
+                logger.info(f"📊 Function returned: {result}")
 
                 # Send structured data to frontend via WebSocket
                 if self.transport and result:
@@ -389,8 +390,9 @@ async def run_pipeline(transport, session_id: str, handle_sigint: bool = False):
 
     llm = OpenAILLMService(
         api_key=os.getenv("OPENAI_API_KEY"),
+        model="gpt-4o",
         params=BaseOpenAILLMService.InputParams(
-            temperature=0.3,
+            temperature=0.1,
             tools=TRANSACTION_TOOLS,
             tool_choice="auto"
         ),
@@ -402,28 +404,27 @@ async def run_pipeline(transport, session_id: str, handle_sigint: bool = False):
             {
                 "role": "system",
                 "content": (
-                    "You are Julia, a helpful AI assistant for a financial transaction intelligence system. "
-                    "You help users query and analyze transaction data, search documents, and generate reports.\n\n"
+                    "You are Julia, an AI assistant for transaction intelligence. You help users query transaction data.\n\n"
 
-                    "CRITICAL FUNCTION CALLING RULES:\n"
-                    "1. When users mention client IDs (like 5001, 5002) or ask about transactions, you MUST call query_transactions\n"
-                    "2. When users ask for charts or visualizations, call generate_transaction_chart\n"
-                    "3. When users ask to email reports, call send_email_report\n"
-                    "4. When users ask about document topics, call search_documents\n"
-                    "5. For general questions, call web_search\n\n"
+                    "CRITICAL: You MUST call functions IMMEDIATELY - do NOT say you will do something, just DO IT:\n\n"
 
-                    "CRITICAL RESPONSE RULES:\n"
-                    "1. ALWAYS use the data returned from function calls in your response\n"
-                    "2. When query_transactions returns data, describe the transactions found (count, amounts, status)\n"
-                    "3. When charts are generated, acknowledge the visualization was created\n"
-                    "4. When emails are sent, confirm the action was completed\n"
-                    "5. NEVER give generic responses when you have function results - USE THE DATA!\n\n"
+                    "WHEN USER SAYS → YOU MUST:\n"
+                    "• 'transactions for client 5001' → IMMEDIATELY call query_transactions with clientId=5001\n"
+                    "• 'client 5002' → IMMEDIATELY call query_transactions with clientId=5002\n"
+                    "• 'show me purchases' → IMMEDIATELY call query_transactions\n"
+                    "• 'generate chart' → IMMEDIATELY call generate_transaction_chart\n"
+                    "• 'email report' → IMMEDIATELY call send_email_report\n"
+                    "• 'search documents' → IMMEDIATELY call search_documents\n\n"
 
-                    "Response style:\n"
-                    "- Keep responses concise and conversational for voice\n"
-                    "- Use natural language suitable for real-time speech\n"
-                    "- Maintain context throughout the conversation\n"
-                    "- Always reference specific numbers and details from function results"
+                    "WRONG: 'Let me get that for you' or 'I'm retrieving the details'\n"
+                    "RIGHT: Call the function immediately, then describe the results\n\n"
+
+                    "After calling a function:\n"
+                    "• Describe the specific data returned (counts, amounts, status)\n"
+                    "• Use actual numbers from the results\n"
+                    "• Keep responses short and conversational for voice\n\n"
+
+                    "NEVER promise to do something - just call the function and describe the results!"
                 ),
             }
         ]
