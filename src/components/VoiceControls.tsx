@@ -6,6 +6,7 @@ interface VoiceControlsProps {
   onAssistantMessage?: (text: string, sources?: any[], tableData?: any, chartData?: any) => void;
   isEnabled: boolean;
   onToggle: () => void;
+  onConnectionChange?: (isConnected: boolean) => void;
 }
 
 export default function VoiceControls({
@@ -13,6 +14,7 @@ export default function VoiceControls({
   onAssistantMessage,
   isEnabled,
   onToggle,
+  onConnectionChange,
 }: VoiceControlsProps) {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -102,6 +104,7 @@ export default function VoiceControls({
 
       setStatus('connected');
       setIsListening(true);
+      onConnectionChange?.(true);
     } catch (error) {
       console.error('Connection error:', error);
       setStatus('error');
@@ -508,6 +511,7 @@ When users request charts, use the generate_transaction_chart function with the 
     setAudioLevel(0);
     assistantResponseRef.current = '';
     responseSourcesRef.current = [];
+    onConnectionChange?.(false);
   };
 
   const handleToggle = async () => {

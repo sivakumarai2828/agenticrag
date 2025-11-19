@@ -25,6 +25,7 @@ export default function EnhancedChatInterface() {
   const [agentSteps, setAgentSteps] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
+  const [isVoiceConnected, setIsVoiceConnected] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -386,8 +387,8 @@ Would you like me to elaborate on any specific aspect?`,
                   {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
                 </button>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-800">Agentic RAG System</h1>
-                  <p className="text-sm text-gray-500">Multi-agent orchestration with adaptive controls</p>
+                  <h1 className="text-xl font-bold text-gray-800">Voice Agentic RAG</h1>
+                  <p className="text-sm text-gray-500">{isVoiceConnected ? 'Voice-controlled multi-modal responses' : 'Smart routing • Multi-modal responses • Voice-enabled AI'}</p>
                 </div>
               </div>
               <button
@@ -406,6 +407,7 @@ Would you like me to elaborate on any specific aspect?`,
             onAssistantMessage={handleVoiceAssistantMessage}
             isEnabled={isVoiceEnabled}
             onToggle={() => setIsVoiceEnabled(!isVoiceEnabled)}
+            onConnectionChange={setIsVoiceConnected}
           />
         </header>
 
@@ -425,11 +427,17 @@ Would you like me to elaborate on any specific aspect?`,
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-3">Welcome to Agentic RAG</h2>
+                <h2 className="text-2xl font-bold text-gray-800 mb-3">Ask anything, get structured answers</h2>
                 <p className="text-gray-600 mb-6">
-                  Role: <strong>{persona.charAt(0).toUpperCase() + persona.slice(1)}</strong>. Try these quick actions:
+                  Intelligent routing to the right data source with multi-modal rendering
                 </p>
-                <QuickActionChips onSelectAction={handleQuickAction} />
+                {!isVoiceConnected && <QuickActionChips onSelectAction={handleQuickAction} />}
+                {isVoiceConnected && (
+                  <div className="bg-gradient-to-r from-violet-50 to-fuchsia-50 border border-violet-200 rounded-xl p-6">
+                    <p className="text-lg font-semibold text-gray-800 mb-2">🎤 Voice Mode Active</p>
+                    <p className="text-gray-600">Speak naturally to ask questions, query data, or request charts</p>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -444,42 +452,44 @@ Would you like me to elaborate on any specific aspect?`,
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="border-t border-gray-200 bg-white px-6 py-4">
-          <div className="max-w-4xl mx-auto">
-            {validationError && (
-              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                {validationError}
+        {!isVoiceConnected && (
+          <div className="border-t border-gray-200 bg-white px-6 py-4">
+            <div className="max-w-4xl mx-auto">
+              {validationError && (
+                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {validationError}
+                </div>
+              )}
+              <div className="flex items-end space-x-3">
+                <button className="p-3 hover:bg-gray-100 rounded-lg transition-colors">
+                  <Paperclip size={20} className="text-gray-600" />
+                </button>
+                <div className="flex-1 relative">
+                  <textarea
+                    value={inputValue}
+                    onChange={e => setInputValue(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Ask about data, docs, APIs, or request charts..."
+                    rows={1}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                    style={{ minHeight: '48px', maxHeight: '200px' }}
+                  />
+                </div>
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!inputValue.trim() || isLoading || !!validationError}
+                  className="p-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg hover:from-violet-700 hover:to-fuchsia-700 shadow-lg shadow-violet-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={validationError || undefined}
+                >
+                  <Send size={20} />
+                </button>
               </div>
-            )}
-            <div className="flex items-end space-x-3">
-              <button className="p-3 hover:bg-gray-100 rounded-lg transition-colors">
-                <Paperclip size={20} className="text-gray-600" />
-              </button>
-              <div className="flex-1 relative">
-                <textarea
-                  value={inputValue}
-                  onChange={e => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type your message..."
-                  rows={1}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
-                  style={{ minHeight: '48px', maxHeight: '200px' }}
-                />
-              </div>
-              <button
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading || !!validationError}
-                className="p-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg hover:from-violet-700 hover:to-fuchsia-700 shadow-lg shadow-violet-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                title={validationError || undefined}
-              >
-                <Send size={20} />
-              </button>
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                Enter to send • Shift+Enter for new line
+              </p>
             </div>
-            <p className="text-xs text-gray-500 mt-2 text-center">
-              Powered by multi-agent RAG • {persona} mode • Model: {config.agents.model}
-            </p>
           </div>
-        </div>
+        )}
       </div>
 
       <MemoryManagementSheet isOpen={showMemorySheet} onClose={() => setShowMemorySheet(false)} />
