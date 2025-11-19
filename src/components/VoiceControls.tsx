@@ -47,20 +47,6 @@ export default function VoiceControls({
     }
   }, [isEnabled]);
 
-  useEffect(() => {
-    // When speaking stops, display any pending message after a small delay
-    if (!isSpeaking && pendingMessageRef.current && onAssistantMessage) {
-      const timer = setTimeout(() => {
-        if (pendingMessageRef.current && onAssistantMessage) {
-          const { text, sources, tableData, chartData } = pendingMessageRef.current;
-          onAssistantMessage(text, sources, tableData, chartData);
-          pendingMessageRef.current = null;
-        }
-      }, 500); // 500ms delay to ensure audio fully finished
-
-      return () => clearTimeout(timer);
-    }
-  }, [isSpeaking, onAssistantMessage]);
 
   const connectToOpenAI = async () => {
     try {
@@ -289,6 +275,7 @@ When users request charts, use the generate_transaction_chart function with the 
   };
 
   const handleServerEvent = async (event: any) => {
+    console.log('OpenAI event:', event.type, event);
     switch (event.type) {
       case 'session.created':
       case 'session.updated':
@@ -325,6 +312,20 @@ When users request charts, use the generate_transaction_chart function with the 
         }
         break;
 
+      case 'response.audio.done':
+      case 'response.audio_transcript.done':
+        console.log('Audio output complete');
+        // Audio has finished playing, display any pending message
+        setTimeout(() => {
+          if (pendingMessageRef.current && onAssistantMessage) {
+            const { text, sources, tableData, chartData } = pendingMessageRef.current;
+            onAssistantMessage(text, sources, tableData, chartData);
+            pendingMessageRef.current = null;
+          }
+          setIsSpeaking(false);
+        }, 500);
+        break;
+
       case 'response.done':
         if (assistantResponseRef.current) {
           console.log('Assistant response:', assistantResponseRef.current);
@@ -348,6 +349,18 @@ When users request charts, use the generate_transaction_chart function with the 
           assistantResponseRef.current = '';
           responseSourcesRef.current = [];
         }
+
+        // Fallback: If there's a pending message, display it after a delay
+        // This ensures messages aren't stuck forever if audio events don't fire
+        setTimeout(() => {
+          if (pendingMessageRef.current && onAssistantMessage) {
+            console.log('Fallback: Displaying pending message');
+            const { text, sources, tableData, chartData } = pendingMessageRef.current;
+            onAssistantMessage(text, sources, tableData, chartData);
+            pendingMessageRef.current = null;
+            setIsSpeaking(false);
+          }
+        }, 3000);
         break;
 
       case 'error':
