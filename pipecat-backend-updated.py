@@ -48,7 +48,7 @@ TRANSACTION_TOOLS = [
     {
         "type": "function",
         "name": "query_transactions",
-        "description": "REQUIRED: Call this to retrieve transaction records when users ask about client transactions, purchases, refunds, or mention client IDs like 5001, 5002, etc. Returns transaction data that you MUST describe in your response.",
+        "description": "Query transaction database. MUST call this immediately when user mentions: client IDs (5001, 5002, etc.), transactions, purchases, refunds, payments, or asks 'show me'. Do NOT say you will look it up - CALL THIS NOW.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -392,9 +392,10 @@ async def run_pipeline(transport, session_id: str, handle_sigint: bool = False):
         api_key=os.getenv("OPENAI_API_KEY"),
         model="gpt-4o",
         params=BaseOpenAILLMService.InputParams(
-            temperature=0.1,
+            temperature=0.0,
             tools=TRANSACTION_TOOLS,
-            tool_choice="auto"
+            tool_choice="auto",
+            parallel_tool_calls=True
         ),
     )
 
@@ -404,28 +405,55 @@ async def run_pipeline(transport, session_id: str, handle_sigint: bool = False):
             {
                 "role": "system",
                 "content": (
-                    "You are Julia, an AI assistant for transaction intelligence. You help users query transaction data.\n\n"
+                    "You are Julia, a transaction intelligence assistant.\n\n"
 
-                    "CRITICAL: You MUST call functions IMMEDIATELY - do NOT say you will do something, just DO IT:\n\n"
+                    "CRITICAL RULES:\n"
+                    "1. When user mentions client ID (5001, 5002, etc) or transactions → IMMEDIATELY call query_transactions\n"
+                    "2. When user asks for chart/graph → IMMEDIATELY call generate_transaction_chart\n"
+                    "3. When user asks to email → IMMEDIATELY call send_email_report\n"
+                    "4. When user asks about documents → IMMEDIATELY call search_documents\n\n"
 
-                    "WHEN USER SAYS → YOU MUST:\n"
-                    "• 'transactions for client 5001' → IMMEDIATELY call query_transactions with clientId=5001\n"
-                    "• 'client 5002' → IMMEDIATELY call query_transactions with clientId=5002\n"
-                    "• 'show me purchases' → IMMEDIATELY call query_transactions\n"
-                    "• 'generate chart' → IMMEDIATELY call generate_transaction_chart\n"
-                    "• 'email report' → IMMEDIATELY call send_email_report\n"
-                    "• 'search documents' → IMMEDIATELY call search_documents\n\n"
+                    "DO NOT:\n"
+                    "❌ Say 'Let me check' or 'I'll look that up'\n"
+                    "❌ Say 'One moment' or 'Please wait'\n"
+                    "❌ Describe what you're going to do\n\n"
 
-                    "WRONG: 'Let me get that for you' or 'I'm retrieving the details'\n"
-                    "RIGHT: Call the function immediately, then describe the results\n\n"
+                    "DO:\n"
+                    "✅ Call the function FIRST (in silence)\n"
+                    "✅ THEN speak about the actual results\n"
+                    "✅ Use specific numbers from the function response\n\n"
 
-                    "After calling a function:\n"
-                    "• Describe the specific data returned (counts, amounts, status)\n"
-                    "• Use actual numbers from the results\n"
-                    "• Keep responses short and conversational for voice\n\n"
+                    "Example:\n"
+                    "User: 'Show me client 5001 transactions'\n"
+                    "You: [call query_transactions] → 'Client 5001 has 3 transactions totaling $384.69. 2 approved, 1 declined.'\n\n"
 
-                    "NEVER promise to do something - just call the function and describe the results!"
+                    "Keep all responses SHORT and conversational for voice interaction."
                 ),
+            },
+            {
+                "role": "user",
+                "content": "Show me transactions for client 5001"
+            },
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [{
+                    "id": "example_call_1",
+                    "type": "function",
+                    "function": {
+                        "name": "query_transactions",
+                        "arguments": '{"clientId": 5001}'
+                    }
+                }]
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "example_call_1",
+                "content": '{"success": true, "summary": {"totalTransactions": 3, "totalAmount": "384.69", "approvedCount": 2, "declinedCount": 1}}'
+            },
+            {
+                "role": "assistant",
+                "content": "Client 5001 has 3 transactions totaling $384.69. 2 were approved and 1 was declined."
             }
         ]
 
