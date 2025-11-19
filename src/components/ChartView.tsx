@@ -71,9 +71,18 @@ function drawChart(canvas: HTMLCanvasElement, config: ChartConfig): void {
   ctx.fillStyle = '#1f2937';
   ctx.font = '12px sans-serif';
 
+  const maxLabels = 8;
+  const labelStep = Math.ceil(data.labels.length / maxLabels);
   data.labels.forEach((label, i) => {
-    const x = padding + (i * width) / (data.labels.length - 1);
-    ctx.fillText(label, x - 15, canvas.height - 20);
+    if (i % labelStep === 0 || i === data.labels.length - 1) {
+      const x = padding + (i * width) / (data.labels.length - 1);
+      ctx.save();
+      ctx.translate(x, canvas.height - 20);
+      ctx.rotate(-Math.PI / 6);
+      ctx.textAlign = 'right';
+      ctx.fillText(label, 0, 0);
+      ctx.restore();
+    }
   });
 
   [0, 0.25, 0.5, 0.75, 1].forEach(factor => {
