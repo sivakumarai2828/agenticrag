@@ -41,10 +41,6 @@ export default function SimpleApp() {
   const [currentTraceSteps, setCurrentTraceSteps] = useState<TraceStep[]>([]);
   const [currentCitations, setCurrentCitations] = useState<(VectorResult | WebResult)[]>([]);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const [, setVoiceProvider] = useState<'openai' | 'pipecat'>('openai');
-  const [, setPipecatOptions] = useState<{
-    language: string;
-  }>({ language: 'en' });
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [lastClientId, setLastClientId] = useState<number | null>(null);
 
@@ -205,8 +201,6 @@ export default function SimpleApp() {
     }
   };
 
-  const handleVoiceResponse = (audio: ArrayBuffer) => {
-  };
 
   const handleVoiceAssistantMessage = (text: string, sources?: any[], tableData?: any, chartData?: any) => {
     console.log('Voice assistant message with data:', text, sources, tableData);
@@ -286,12 +280,9 @@ export default function SimpleApp() {
         <>
           <VoiceControls
         onTranscript={handleVoiceTranscript}
-        onResponse={handleVoiceResponse}
         onAssistantMessage={handleVoiceAssistantMessage}
         isEnabled={voiceEnabled}
         onToggle={toggleVoice}
-        onProviderChange={setVoiceProvider}
-        onPipecatOptionsChange={setPipecatOptions}
       />
 
       <div className="flex items-center justify-between px-6 py-3">
