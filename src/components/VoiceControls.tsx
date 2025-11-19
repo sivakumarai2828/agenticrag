@@ -47,6 +47,21 @@ export default function VoiceControls({
     }
   }, [isEnabled]);
 
+  useEffect(() => {
+    // When speaking stops, display any pending message after a small delay
+    if (!isSpeaking && pendingMessageRef.current && onAssistantMessage) {
+      const timer = setTimeout(() => {
+        if (pendingMessageRef.current && onAssistantMessage) {
+          const { text, sources, tableData, chartData } = pendingMessageRef.current;
+          onAssistantMessage(text, sources, tableData, chartData);
+          pendingMessageRef.current = null;
+        }
+      }, 500); // 500ms delay to ensure audio fully finished
+
+      return () => clearTimeout(timer);
+    }
+  }, [isSpeaking, onAssistantMessage]);
+
   const connectToOpenAI = async () => {
     try {
       setStatus('connecting');
@@ -73,15 +88,7 @@ export default function VoiceControls({
 
         audioElement.onplay = () => setIsSpeaking(true);
         audioElement.onpause = () => setIsSpeaking(false);
-        audioElement.onended = () => {
-          setIsSpeaking(false);
-          // Display any pending message after audio finishes
-          if (pendingMessageRef.current && onAssistantMessage) {
-            const { text, sources, tableData, chartData } = pendingMessageRef.current;
-            onAssistantMessage(text, sources, tableData, chartData);
-            pendingMessageRef.current = null;
-          }
-        };
+        audioElement.onended = () => setIsSpeaking(false);
       };
 
       await setupAudioInput(pc);
@@ -200,13 +207,13 @@ When users request charts, use the generate_transaction_chart function with the 
           {
             type: 'function',
             name: 'query_transactions',
-            description: 'Query transaction data from the database. Use this when users ask about transactions, purchases, refunds, or payment information.',
+            description: 'Query transaction data from the database. Use this when users ask about transactions, purchases, refunds, or payment information. If user asks for "all transactions", omit clientId to get all data.',
             parameters: {
               type: 'object',
               properties: {
                 clientId: {
                   type: 'number',
-                  description: 'The client ID to query transactions for',
+                  description: 'The client ID to query transactions for. Omit to query ALL transactions.',
                 },
                 type: {
                   type: 'string',
@@ -218,8 +225,12 @@ When users request charts, use the generate_transaction_chart function with the 
                   enum: ['APPROVED', 'DECLINED', 'CALL FOR AUTH'],
                   description: 'Filter by transaction status (optional)',
                 },
+                limit: {
+                  type: 'number',
+                  description: 'Maximum number of transactions to return. Default 100, can set higher for "all" queries.',
+                },
               },
-              required: ['clientId'],
+              required: [],
             },
           },
           {
