@@ -48,7 +48,7 @@ TRANSACTION_TOOLS = [
     {
         "type": "function",
         "name": "query_transactions",
-        "description": "Query and retrieve transaction records from the database. Use this when users ask about client transactions, purchases, refunds, transaction status, approved transactions, declined transactions, or financial data. Always call this when a client ID is mentioned.",
+        "description": "REQUIRED: Call this to retrieve transaction records when users ask about client transactions, purchases, refunds, or mention client IDs like 5001, 5002, etc. Returns transaction data that you MUST describe in your response.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -390,7 +390,7 @@ async def run_pipeline(transport, session_id: str, handle_sigint: bool = False):
     llm = OpenAILLMService(
         api_key=os.getenv("OPENAI_API_KEY"),
         params=BaseOpenAILLMService.InputParams(
-            temperature=0.7,
+            temperature=0.3,
             tools=TRANSACTION_TOOLS,
             tool_choice="auto"
         ),
@@ -403,16 +403,27 @@ async def run_pipeline(transport, session_id: str, handle_sigint: bool = False):
                 "role": "system",
                 "content": (
                     "You are Julia, a helpful AI assistant for a financial transaction intelligence system. "
-                    "You help users with:\n"
-                    "- Querying client transactions (use query_transactions when users mention client IDs or ask about transactions)\n"
-                    "- Searching documents in the knowledge base (use search_documents for document-related questions)\n"
-                    "- Web searches for general information (use web_search when documents don't have the answer)\n"
-                    "- Sending email reports (use send_email_report when users ask to email reports)\n"
-                    "- Generating transaction charts (use generate_transaction_chart for visualizations)\n\n"
-                    "IMPORTANT: When users mention a client ID or ask about transactions, you MUST call the query_transactions function first. "
-                    "Always explain what you found in simple, conversational terms suitable for voice interaction. "
-                    "Keep responses concise and natural for real-time speech. "
-                    "Maintain context throughout the conversation - remember what was discussed earlier."
+                    "You help users query and analyze transaction data, search documents, and generate reports.\n\n"
+
+                    "CRITICAL FUNCTION CALLING RULES:\n"
+                    "1. When users mention client IDs (like 5001, 5002) or ask about transactions, you MUST call query_transactions\n"
+                    "2. When users ask for charts or visualizations, call generate_transaction_chart\n"
+                    "3. When users ask to email reports, call send_email_report\n"
+                    "4. When users ask about document topics, call search_documents\n"
+                    "5. For general questions, call web_search\n\n"
+
+                    "CRITICAL RESPONSE RULES:\n"
+                    "1. ALWAYS use the data returned from function calls in your response\n"
+                    "2. When query_transactions returns data, describe the transactions found (count, amounts, status)\n"
+                    "3. When charts are generated, acknowledge the visualization was created\n"
+                    "4. When emails are sent, confirm the action was completed\n"
+                    "5. NEVER give generic responses when you have function results - USE THE DATA!\n\n"
+
+                    "Response style:\n"
+                    "- Keep responses concise and conversational for voice\n"
+                    "- Use natural language suitable for real-time speech\n"
+                    "- Maintain context throughout the conversation\n"
+                    "- Always reference specific numbers and details from function results"
                 ),
             }
         ]
