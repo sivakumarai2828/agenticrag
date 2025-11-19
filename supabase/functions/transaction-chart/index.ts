@@ -85,11 +85,12 @@ Deno.serve(async (req: Request) => {
     } else if (chartType === 'line' || chartType === 'bar') {
       const dateGroups: Record<string, number> = {};
       transactions?.forEach(t => {
-        const date = new Date(t.tran_date).toISOString().split('T')[0];
-        dateGroups[date] = (dateGroups[date] || 0) + parseFloat(t.tran_amt.toString());
+        const date = new Date(t.tran_date);
+        const formattedDate = `${date.getMonth() + 1}/${date.getDate()}`;
+        dateGroups[formattedDate] = (dateGroups[formattedDate] || 0) + parseFloat(t.tran_amt.toString());
       });
 
-      const sortedDates = Object.keys(dateGroups).sort();
+      const sortedDates = Object.keys(dateGroups);
       chartData.data.labels = sortedDates;
       chartData.data.datasets = [{
         label: 'Transaction Amount',
