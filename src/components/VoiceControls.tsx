@@ -542,41 +542,14 @@ When users request charts, use the generate_transaction_chart function with the 
 
       {status === 'connected' && (
         <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-sm">
-            <select
-              value={selectedVoice}
-              onChange={(e) => setSelectedVoice(e.target.value)}
-              className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm"
-              disabled
-              title="Voice can only be changed before connecting"
-            >
-              <option value="alloy">Alloy</option>
-              <option value="echo">Echo</option>
-              <option value="shimmer">Shimmer</option>
-            </select>
-          </label>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={enableVAD}
-              onChange={(e) => setEnableVAD(e.target.checked)}
-              disabled
-              title="VAD can only be changed before connecting"
-            />
-            Auto-detect speech
-          </label>
-        </div>
-      )}
-
-      {status === 'idle' && (
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
             <span>Voice:</span>
             <select
               value={selectedVoice}
               onChange={(e) => setSelectedVoice(e.target.value)}
-              className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm"
+              className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 cursor-not-allowed opacity-60"
+              disabled
+              title="Voice can only be changed before connecting"
             >
               <option value="alloy">Alloy - Neutral</option>
               <option value="echo">Echo - Male</option>
@@ -584,13 +557,43 @@ When users request charts, use the generate_transaction_chart function with the 
             </select>
           </label>
 
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
             <input
               type="checkbox"
               checked={enableVAD}
               onChange={(e) => setEnableVAD(e.target.checked)}
+              disabled
+              title="VAD can only be changed before connecting"
+              className="cursor-not-allowed"
             />
-            Auto-detect speech
+            <span>Auto-detect speech</span>
+          </label>
+        </div>
+      )}
+
+      {status === 'idle' && (
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <span>Voice:</span>
+            <select
+              value={selectedVoice}
+              onChange={(e) => setSelectedVoice(e.target.value)}
+              className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+            >
+              <option value="alloy">Alloy - Neutral</option>
+              <option value="echo">Echo - Male</option>
+              <option value="shimmer">Shimmer - Female</option>
+            </select>
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={enableVAD}
+              onChange={(e) => setEnableVAD(e.target.checked)}
+              className="cursor-pointer"
+            />
+            <span>Auto-detect speech</span>
           </label>
         </div>
       )}
