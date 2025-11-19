@@ -833,11 +833,41 @@ export default function VoiceControls({
               }
             );
 
+            const result = await emailResponse.json();
+
             if (!emailResponse.ok) {
-              throw new Error(`Email sending failed: ${emailResponse.statusText}`);
+              console.error('Email sending failed:', result);
+
+              const errorMessage = result.message || result.error || 'Email sending failed';
+
+              if (onAssistantMessage) {
+                onAssistantMessage(
+                  errorMessage,
+                  ['EMAIL'],
+                  undefined,
+                  undefined
+                );
+              }
+
+              if (dataChannelRef.current?.readyState === 'open') {
+                dataChannelRef.current.send(JSON.stringify({
+                  type: 'conversation.item.create',
+                  item: {
+                    type: 'function_call_output',
+                    call_id: event.call_id,
+                    output: JSON.stringify({ error: errorMessage }),
+                  },
+                }));
+
+                dataChannelRef.current.send(JSON.stringify({
+                  type: 'response.create',
+                }));
+              }
+
+              pendingFunctionCallRef.current = false;
+              return;
             }
 
-            const result = await emailResponse.json();
             console.log('Email sent successfully:', result);
 
             responseSourcesRef.current = ['EMAIL'];
@@ -869,6 +899,31 @@ export default function VoiceControls({
             pendingFunctionCallRef.current = false;
           } catch (error) {
             console.error('Error calling send_email_report:', error);
+
+            if (onAssistantMessage) {
+              onAssistantMessage(
+                'Sorry, there was an error sending the email. Please try again.',
+                ['EMAIL'],
+                undefined,
+                undefined
+              );
+            }
+
+            if (dataChannelRef.current?.readyState === 'open') {
+              dataChannelRef.current.send(JSON.stringify({
+                type: 'conversation.item.create',
+                item: {
+                  type: 'function_call_output',
+                  call_id: event.call_id,
+                  output: JSON.stringify({ error: 'Email sending failed' }),
+                },
+              }));
+
+              dataChannelRef.current.send(JSON.stringify({
+                type: 'response.create',
+              }));
+            }
+
             pendingFunctionCallRef.current = false;
           }
         } else if (event.name === 'search_documents') {
