@@ -146,6 +146,12 @@ export default function SimpleApp() {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
 
+    // When voice is connected, OpenAI handles everything - don't process locally
+    if (isVoiceConnected) {
+      console.log('Voice connected - OpenAI will handle response');
+      return;
+    }
+
     if (skipAgentProcessing) {
       console.log('Skipping agent processing - function call will handle response');
       return;
@@ -204,24 +210,35 @@ export default function SimpleApp() {
 
 
   const handleVoiceAssistantMessage = (text: string, sources?: any[], tableData?: any, chartData?: any) => {
-    console.log('Voice assistant message with data:', text, sources, tableData);
+    console.log('Voice assistant message with data:', text, sources, tableData, chartData);
 
     let formattedTable;
+    let intent;
+
     if (tableData) {
       const summary = tableData.summary || tableData;
       if (summary.transactions && Array.isArray(summary.transactions)) {
         formattedTable = formatTransactionTable(summary);
+        intent = 'transaction_query';
       }
+    }
+
+    if (chartData) {
+      intent = 'chart';
+    }
+
+    if (sources?.includes('EMAIL')) {
+      intent = 'email';
     }
 
     const assistantMessage: Message = {
       id: crypto.randomUUID(),
       role: 'assistant',
       content: text,
-      sources: sources || [],
+      sources: sources || ['OPENAI'],
       table: formattedTable,
       chart: chartData,
-      intent: tableData ? 'transaction_query' : (chartData ? 'chart' : undefined),
+      intent: intent || 'general',
     };
 
     setMessages(prev => [...prev, assistantMessage]);

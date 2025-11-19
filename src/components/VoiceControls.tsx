@@ -308,10 +308,18 @@ When users request charts, use the generate_transaction_chart function with the 
           console.log('Assistant response:', assistantResponseRef.current);
 
           if (onAssistantMessage && assistantResponseRef.current.trim()) {
-            onAssistantMessage(
-              assistantResponseRef.current,
-              responseSourcesRef.current
+            // Only show text responses if no function was called
+            // Function calls handle their own message display
+            const hasFunctionCalls = event.response?.output?.some((item: any) =>
+              item.type === 'function_call'
             );
+
+            if (!hasFunctionCalls) {
+              onAssistantMessage(
+                assistantResponseRef.current,
+                ['OPENAI']
+              );
+            }
           }
 
           assistantResponseRef.current = '';
@@ -420,9 +428,17 @@ When users request charts, use the generate_transaction_chart function with the 
           result = {
             success: false,
             error: `Failed to send email: ${response.status}`,
+            voiceSummary: 'Sorry, I encountered an error sending the email.',
           };
         } else {
           result = await response.json();
+
+          if (result.success && result.voiceSummary) {
+            onAssistantMessage?.(
+              result.voiceSummary,
+              ['EMAIL']
+            );
+          }
         }
       }
 
