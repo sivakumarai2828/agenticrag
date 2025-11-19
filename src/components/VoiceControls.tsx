@@ -794,7 +794,7 @@ export default function VoiceControls({
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
             const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-            console.log('Sending email report for client:', args.clientId, 'to:', args.to);
+            console.log('📧 EMAIL FUNCTION CALLED - Client:', args.clientId, '| To:', args.to, '| Full args:', JSON.stringify(args));
 
             const queryResponse = await fetch(
               `${supabaseUrl}/functions/v1/transaction-query`,

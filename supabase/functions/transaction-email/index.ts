@@ -39,7 +39,12 @@ Deno.serve(async (req: Request) => {
     const requestData: EmailRequest = await req.json();
     const { to, subject, transactionSummary, chartData } = requestData;
 
-    console.log('Email report request:', { to, subject });
+    console.log('📧 EMAIL EDGE FUNCTION - Request:', JSON.stringify({
+      to,
+      subject,
+      hasTransactionSummary: !!transactionSummary,
+      transactionCount: transactionSummary?.transactions?.length
+    }));
 
     const htmlContent = `
       <!DOCTYPE html>
