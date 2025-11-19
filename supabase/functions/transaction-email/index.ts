@@ -141,6 +141,21 @@ Deno.serve(async (req: Request) => {
 
     if (!response.ok) {
       console.error('Resend API error:', result);
+
+      if (result.statusCode === 403 && result.message?.includes('testing emails')) {
+        return new Response(
+          JSON.stringify({
+            error: 'Resend is in test mode',
+            message: 'You can only send emails to sivakumarai2828@gmail.com in test mode. To send to other addresses, verify a domain at resend.com/domains',
+            testEmail: 'sivakumarai2828@gmail.com'
+          }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
       return new Response(
         JSON.stringify({ error: 'Failed to send email', details: result }),
         {
