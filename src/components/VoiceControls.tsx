@@ -328,6 +328,13 @@ When users request charts, use the generate_transaction_chart function with the 
       console.log(`Function called: ${name}`, args);
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
+      };
+
       let result: any;
 
       if (name === 'query_transactions') {
@@ -335,25 +342,36 @@ When users request charts, use the generate_transaction_chart function with the 
           `${supabaseUrl}/functions/v1/transaction-query`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(args),
           }
         );
-        result = await response.json();
 
-        if (result.success && result.transactions) {
-          onAssistantMessage?.(
-            result.voiceSummary,
-            ['DB'],
-            result.transactions
-          );
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Transaction query failed:', response.status, errorText);
+          result = {
+            success: false,
+            error: `Failed to query transactions: ${response.status}`,
+            voiceSummary: 'Sorry, I encountered an error accessing the transaction data.',
+          };
+        } else {
+          result = await response.json();
+
+          if (result.success && result.summary) {
+            onAssistantMessage?.(
+              result.voiceSummary,
+              ['DB'],
+              result.summary
+            );
+          }
         }
       } else if (name === 'generate_transaction_chart') {
         const response = await fetch(
           `${supabaseUrl}/functions/v1/transaction-chart`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
               clientId: args.clientId,
               chartType: args.chartType || 'bar',
@@ -362,32 +380,54 @@ When users request charts, use the generate_transaction_chart function with the 
             }),
           }
         );
-        result = await response.json();
 
-        if (result.success && result.chartData) {
-          onAssistantMessage?.(
-            result.voiceSummary,
-            ['DB'],
-            null,
-            result.chartData
-          );
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Chart generation failed:', response.status, errorText);
+          result = {
+            success: false,
+            error: `Failed to generate chart: ${response.status}`,
+            voiceSummary: 'Sorry, I encountered an error generating the chart.',
+          };
+        } else {
+          result = await response.json();
+
+          if (result.success && result.chartData) {
+            onAssistantMessage?.(
+              result.voiceSummary,
+              ['DB'],
+              null,
+              result.chartData
+            );
+          }
         }
       } else if (name === 'send_transaction_email') {
         const response = await fetch(
           `${supabaseUrl}/functions/v1/transaction-email`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(args),
           }
         );
-        result = await response.json();
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Email send failed:', response.status, errorText);
+          result = {
+            success: false,
+            error: `Failed to send email: ${response.status}`,
+          };
+        } else {
+          result = await response.json();
+        }
       }
 
       sendFunctionCallOutput(callId, result);
     } catch (error) {
       console.error('Function call error:', error);
       sendFunctionCallOutput(callId, {
+        success: false,
         error: 'Function execution failed',
         details: error instanceof Error ? error.message : String(error),
       });
