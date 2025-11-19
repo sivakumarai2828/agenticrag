@@ -48,6 +48,8 @@ export default function VoiceControls({
   const pendingFunctionCallRef = useRef<boolean>(false);
   const currentTranscriptRef = useRef<string>('');
   const voiceSessionActiveRef = useRef<boolean>(false);
+  const pipecatTableDataRef = useRef<any>(null);
+  const pipecatChartDataRef = useRef<any>(null);
 
   useEffect(() => {
     return () => {
@@ -317,15 +319,37 @@ export default function VoiceControls({
                 assistantResponseRef.current += message.delta;
                 setInterimTranscript(assistantResponseRef.current);
               }
+            } else if (message.type === 'function_data') {
+              console.log('Pipecat function data:', message);
+              if (message.data) {
+                if (message.data.tableData) {
+                  pipecatTableDataRef.current = message.data.tableData;
+                }
+                if (message.data.chartData) {
+                  pipecatChartDataRef.current = message.data.chartData;
+                }
+                if (message.data.sources) {
+                  responseSourcesRef.current = message.data.sources;
+                }
+              }
             } else if (message.type === 'response_start') {
               assistantResponseRef.current = '';
+              pipecatTableDataRef.current = null;
+              pipecatChartDataRef.current = null;
               setInterimTranscript('');
               setIsSpeaking(true);
             } else if (message.type === 'response_complete') {
               if (assistantResponseRef.current && onAssistantMessage) {
-                onAssistantMessage(assistantResponseRef.current, responseSourcesRef.current);
+                onAssistantMessage(
+                  assistantResponseRef.current,
+                  responseSourcesRef.current,
+                  pipecatTableDataRef.current,
+                  pipecatChartDataRef.current
+                );
                 assistantResponseRef.current = '';
                 responseSourcesRef.current = [];
+                pipecatTableDataRef.current = null;
+                pipecatChartDataRef.current = null;
               }
               setInterimTranscript('');
               setIsSpeaking(false);

@@ -2,6 +2,7 @@ import os
 import asyncio
 import httpx
 import uuid
+import json
 from typing import Dict
 from dotenv import load_dotenv
 from loguru import logger
@@ -257,7 +258,11 @@ async def execute_function(function_name: str, arguments: dict):
 # Function Call Processor
 # -----------------------------------------------------
 class FunctionCallProcessor(FrameProcessor):
-    """Handles function call execution and returns results to LLM"""
+    """Handles function call execution and returns results to LLM and sends structured data to frontend"""
+
+    def __init__(self, transport=None):
+        super().__init__()
+        self.transport = transport
 
     async def process_frame(self, frame, direction):
         await super().process_frame(frame, direction)
@@ -269,7 +274,11 @@ class FunctionCallProcessor(FrameProcessor):
                 # Execute the function
                 result = await execute_function(frame.function_name, frame.arguments)
 
-                # Create result frame
+                # Send structured data to frontend via WebSocket
+                if self.transport and result:
+                    await self.send_structured_data(frame.function_name, result)
+
+                # Create result frame for LLM
                 result_frame = FunctionCallResultFrame(
                     function_name=frame.function_name,
                     call_id=frame.call_id,
@@ -289,6 +298,48 @@ class FunctionCallProcessor(FrameProcessor):
                 await self.push_frame(error_result)
         else:
             await self.push_frame(frame)
+
+    async def send_structured_data(self, function_name, result):
+        """Send structured data (tables, charts) to the frontend"""
+        try:
+            if function_name == "query_transactions" and "summary" in result:
+                message = {
+                    "type": "function_data",
+                    "function_name": function_name,
+                    "data": {
+                        "tableData": result,
+                        "sources": ["Database Query"]
+                    }
+                }
+                await self.transport._websocket.send_text(json.dumps(message))
+                logger.info(f"📊 Sent transaction data to frontend")
+
+            elif function_name == "generate_transaction_chart" and "chartData" in result:
+                message = {
+                    "type": "function_data",
+                    "function_name": function_name,
+                    "data": {
+                        "chartData": result["chartData"],
+                        "sources": ["Database Query"]
+                    }
+                }
+                await self.transport._websocket.send_text(json.dumps(message))
+                logger.info(f"📈 Sent chart data to frontend")
+
+            elif function_name == "search_documents" and "sources" in result:
+                message = {
+                    "type": "function_data",
+                    "function_name": function_name,
+                    "data": {
+                        "sources": result.get("sources", []),
+                        "citations": result.get("sources", [])
+                    }
+                }
+                await self.transport._websocket.send_text(json.dumps(message))
+                logger.info(f"📚 Sent document sources to frontend")
+
+        except Exception as e:
+            logger.error(f"❌ Error sending structured data: {e}")
 
 # -----------------------------------------------------
 # FastAPI Server Setup
@@ -374,7 +425,7 @@ async def run_pipeline(transport, session_id: str, handle_sigint: bool = False):
     audiobuffer = AudioBufferProcessor(user_continuous_stream=True)
 
     # --- Function call processor ---
-    function_processor = FunctionCallProcessor()
+    function_processor = FunctionCallProcessor(transport=transport)
 
     # --- Define processing pipeline ---
     pipeline = Pipeline([
