@@ -32,6 +32,8 @@ export default function VoiceControls({
   const assistantResponseRef = useRef<string>('');
   const responseSourcesRef = useRef<any[]>([]);
   const voiceSessionActiveRef = useRef<boolean>(false);
+  const pendingMessageRef = useRef<{ text: string; sources?: any[]; tableData?: any; chartData?: any } | null>(null);
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     return () => {
@@ -67,10 +69,19 @@ export default function VoiceControls({
         const audioElement = new Audio();
         audioElement.autoplay = true;
         audioElement.srcObject = event.streams[0];
+        audioElementRef.current = audioElement;
 
         audioElement.onplay = () => setIsSpeaking(true);
         audioElement.onpause = () => setIsSpeaking(false);
-        audioElement.onended = () => setIsSpeaking(false);
+        audioElement.onended = () => {
+          setIsSpeaking(false);
+          // Display any pending message after audio finishes
+          if (pendingMessageRef.current && onAssistantMessage) {
+            const { text, sources, tableData, chartData } = pendingMessageRef.current;
+            onAssistantMessage(text, sources, tableData, chartData);
+            pendingMessageRef.current = null;
+          }
+        };
       };
 
       await setupAudioInput(pc);
@@ -315,10 +326,11 @@ When users request charts, use the generate_transaction_chart function with the 
             );
 
             if (!hasFunctionCalls) {
-              onAssistantMessage(
-                assistantResponseRef.current,
-                ['OPENAI']
-              );
+              // Queue text message to display after audio finishes
+              pendingMessageRef.current = {
+                text: assistantResponseRef.current,
+                sources: ['OPENAI'],
+              };
             }
           }
 
@@ -370,11 +382,12 @@ When users request charts, use the generate_transaction_chart function with the 
           result = await response.json();
 
           if (result.success && result.summary) {
-            onAssistantMessage?.(
-              result.voiceSummary,
-              ['DB'],
-              result.summary
-            );
+            // Queue message to display after audio finishes
+            pendingMessageRef.current = {
+              text: result.voiceSummary,
+              sources: ['DB'],
+              tableData: result.summary,
+            };
           }
         }
       } else if (name === 'generate_transaction_chart') {
@@ -404,12 +417,12 @@ When users request charts, use the generate_transaction_chart function with the 
           result = await response.json();
 
           if (result.success && result.chartData) {
-            onAssistantMessage?.(
-              result.voiceSummary,
-              ['DB'],
-              null,
-              result.chartData
-            );
+            // Queue message to display after audio finishes
+            pendingMessageRef.current = {
+              text: result.voiceSummary,
+              sources: ['DB'],
+              chartData: result.chartData,
+            };
           }
         }
       } else if (name === 'send_transaction_email') {
@@ -434,10 +447,11 @@ When users request charts, use the generate_transaction_chart function with the 
           result = await response.json();
 
           if (result.success && result.voiceSummary) {
-            onAssistantMessage?.(
-              result.voiceSummary,
-              ['EMAIL']
-            );
+            // Queue message to display after audio finishes
+            pendingMessageRef.current = {
+              text: result.voiceSummary,
+              sources: ['EMAIL'],
+            };
           }
         }
       }
@@ -520,6 +534,13 @@ When users request charts, use the generate_transaction_chart function with the 
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
+
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      audioElementRef.current = null;
+    }
+
+    pendingMessageRef.current = null;
 
     setStatus('idle');
     setIsListening(false);
