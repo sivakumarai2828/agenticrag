@@ -41,6 +41,7 @@ export default function SimpleApp() {
   const [currentTraceSteps, setCurrentTraceSteps] = useState<TraceStep[]>([]);
   const [currentCitations, setCurrentCitations] = useState<(VectorResult | WebResult)[]>([]);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [isVoiceConnected, setIsVoiceConnected] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [lastClientId, setLastClientId] = useState<number | null>(null);
 
@@ -239,9 +240,9 @@ export default function SimpleApp() {
               <Zap className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-800">Agentic RAG</h1>
+              <h1 className="text-xl font-bold text-gray-800">Voice Agentic RAG</h1>
               <p className="text-xs text-gray-500">
-                Smart routing • Multi-modal responses • Voice-enabled AI
+                {isVoiceConnected ? 'Voice-controlled multi-modal responses' : 'Smart routing • Multi-modal responses • Voice-enabled AI'}
               </p>
             </div>
           </div>
@@ -283,6 +284,7 @@ export default function SimpleApp() {
         onAssistantMessage={handleVoiceAssistantMessage}
         isEnabled={voiceEnabled}
         onToggle={toggleVoice}
+        onConnectionChange={setIsVoiceConnected}
       />
 
       <div className="flex items-center justify-between px-6 py-3">
@@ -319,7 +321,13 @@ export default function SimpleApp() {
             <p className="text-gray-600 mb-6">
               Intelligent routing to the right data source with multi-modal rendering
             </p>
-            <div className="grid grid-cols-2 gap-3 text-left">
+            {isVoiceConnected ? (
+              <div className="bg-gradient-to-r from-violet-50 to-fuchsia-50 border border-violet-200 rounded-xl p-8 max-w-lg mx-auto">
+                <p className="text-lg font-semibold text-gray-800 mb-2">🎤 Voice Mode Active</p>
+                <p className="text-gray-600">Speak naturally to ask questions, query data, or request charts</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 text-left">
               <button
                 onClick={() => setInput('Show me top merchants by revenue')}
                 className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
@@ -349,32 +357,34 @@ export default function SimpleApp() {
                 <p className="text-xs text-gray-500 mt-1">→ Status check</p>
               </button>
             </div>
+            )}
           </div>
         </div>
       ) : (
         <ChatThread messages={messages} onViewTrace={handleViewTrace} isLoading={isLoading} />
       )}
 
-      <div className="border-t border-gray-200 bg-white px-6 py-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-end space-x-3">
-            <textarea
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask about data, docs, APIs, or request charts..."
-              rows={1}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
-              style={{ minHeight: '48px', maxHeight: '120px' }}
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || isLoading}
-              className="px-5 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg hover:from-violet-700 hover:to-fuchsia-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-            >
-              <Send size={18} />
-              <span className="font-medium">Send</span>
-            </button>
+      {!isVoiceConnected && (
+        <div className="border-t border-gray-200 bg-white px-6 py-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-end space-x-3">
+              <textarea
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about data, docs, APIs, or request charts..."
+                rows={1}
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
+                style={{ minHeight: '48px', maxHeight: '120px' }}
+              />
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() || isLoading}
+                className="px-5 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg hover:from-violet-700 hover:to-fuchsia-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                <Send size={18} />
+                <span className="font-medium">Send</span>
+              </button>
           </div>
           <div className="flex items-center justify-center mt-2">
             <p className="text-xs text-gray-500">
@@ -382,7 +392,8 @@ export default function SimpleApp() {
             </p>
           </div>
         </div>
-      </div>
+        </div>
+      )}
         </>
       )}
 
