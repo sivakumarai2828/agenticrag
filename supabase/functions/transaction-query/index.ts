@@ -30,13 +30,9 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const requestData: TransactionQuery = await req.json();
-    let { query, clientId, type, status, dateFrom, dateTo, limit = 100 } = requestData;
+    const { query, clientId, type, status, dateFrom, dateTo, limit = 100 } = requestData;
 
-    if (typeof clientId === 'string') {
-      clientId = parseInt(clientId, 10);
-    }
-
-    console.log('Transaction query received:', { query, clientId, type, status, dateFrom, dateTo, limit });
+    console.log('Transaction query received:', requestData);
 
     let dbQuery = supabase
       .from('transactions')
@@ -44,8 +40,7 @@ Deno.serve(async (req: Request) => {
       .order('tran_date', { ascending: false })
       .limit(limit);
 
-    if (clientId && !isNaN(clientId)) {
-      console.log('Filtering by client_id:', clientId);
+    if (clientId) {
       dbQuery = dbQuery.eq('client_id', clientId);
     }
 

@@ -3,16 +3,10 @@ import { ChartConfig } from '../services/mockChart';
 import { Download } from 'lucide-react';
 
 interface ChartViewProps {
-  data?: ChartConfig;
-  config?: ChartConfig;
+  config: ChartConfig;
 }
 
-export default function ChartView({ data, config: propConfig }: ChartViewProps) {
-  const config = data || propConfig;
-
-  if (!config) {
-    return null;
-  }
+export default function ChartView({ config }: ChartViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -36,17 +30,17 @@ export default function ChartView({ data, config: propConfig }: ChartViewProps) 
 
   return (
     <div className="mt-4">
-      <div className="flex items-center justify-between mb-3 px-4">
-        <h4 className="text-sm font-semibold text-gray-300">Visualization</h4>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-semibold text-gray-700">Visualization</h4>
         <button
           onClick={handleDownload}
-          className="flex items-center space-x-1 px-3 py-1.5 text-xs font-medium text-purple-400 hover:bg-purple-500/10 rounded-lg transition-colors"
+          className="flex items-center space-x-1 px-3 py-1.5 text-xs font-medium text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
         >
           <Download size={14} />
           <span>PNG</span>
         </button>
       </div>
-      <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-6">
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
         <canvas ref={canvasRef} id="chart-canvas" width="600" height="300"></canvas>
       </div>
     </div>
@@ -74,7 +68,7 @@ function drawChart(canvas: HTMLCanvasElement, config: ChartConfig): void {
   const minValue = 0;
   const range = maxValue - minValue;
 
-  ctx.fillStyle = '#d1d5db';
+  ctx.fillStyle = '#1f2937';
   ctx.font = '12px sans-serif';
 
   const maxLabels = 8;
@@ -96,7 +90,7 @@ function drawChart(canvas: HTMLCanvasElement, config: ChartConfig): void {
     const y = padding + height * (1 - factor);
     ctx.fillText(value.toLocaleString(), 10, y + 4);
 
-    ctx.strokeStyle = '#4b5563';
+    ctx.strokeStyle = '#e5e7eb';
     ctx.beginPath();
     ctx.moveTo(padding, y);
     ctx.lineTo(canvas.width - padding, y);
@@ -148,7 +142,7 @@ function drawChart(canvas: HTMLCanvasElement, config: ChartConfig): void {
 
     ctx.fillStyle = dataset.color;
     ctx.fillRect(padding + datasetIndex * 120, 10, 12, 12);
-    ctx.fillStyle = '#d1d5db';
+    ctx.fillStyle = '#1f2937';
     ctx.font = '11px sans-serif';
     ctx.fillText(dataset.label, padding + datasetIndex * 120 + 18, 20);
   });
@@ -191,7 +185,7 @@ function drawPieChart(
     ctx.closePath();
     ctx.fill();
 
-    ctx.strokeStyle = '#1e293b';
+    ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -221,7 +215,7 @@ function drawPieChart(
     ctx.fillStyle = colors[i % colors.length];
     ctx.fillRect(x, y, 12, 12);
 
-    ctx.fillStyle = '#d1d5db';
+    ctx.fillStyle = '#1f2937';
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(label, x + 18, y + 10);
