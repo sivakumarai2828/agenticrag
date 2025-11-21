@@ -55,7 +55,10 @@ function classifyIntent(query: string): Intent {
       /\b(web|google|latest|news|current|recent|breaking|real-time|realtime|look up|find online|internet)\b/
     ) ||
     lowerQuery.match(/\bsearch\s+(the\s+)?web\b/) ||
-    (lowerQuery.match(/\bsearch\b/) && lowerQuery.match(/\b(latest|news|online|internet)\b/))
+    lowerQuery.match(/\bweb\s+search\b/) ||
+    lowerQuery.match(/\bfrom\s+(the\s+)?web\b/) ||
+    (lowerQuery.match(/\bsearch\b/) && lowerQuery.match(/\b(latest|news|online|internet)\b/)) ||
+    (lowerQuery.match(/\b(latest|recent|current)\b/) && lowerQuery.match(/\bnews\b/))
   ) {
     return "web";
   }
