@@ -329,7 +329,7 @@ export default function SimpleApp() {
           <DataIndex />
         </div>
       ) : activeTab === 'visual' ? (
-        <div className="flex-1">
+        <div className="flex-1 overflow-hidden">
           <VisualVoiceAgent />
         </div>
       ) : (

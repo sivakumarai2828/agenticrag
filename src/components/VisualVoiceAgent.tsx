@@ -225,7 +225,7 @@ export default function VisualVoiceAgent() {
   };
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="flex h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="hidden lg:flex lg:w-2/5 border-r border-slate-700">
         <AudioWaveform
           status={voiceStatus}
@@ -235,18 +235,18 @@ export default function VisualVoiceAgent() {
       </div>
 
       <div className="flex-1 flex flex-col">
-        <header className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700 px-6 py-4">
+        <div className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-2.5 rounded-xl">
                 <Zap className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white">Visual Voice Agent</h1>
-                <p className="text-sm text-gray-400">Real-time AI conversation</p>
+                <h1 className="text-lg font-bold text-white">Visual Voice Agent</h1>
+                <p className="text-xs text-gray-400">Real-time AI conversation with waveform visualization</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <select
                 value={selectedVoice}
                 onChange={(e) => setSelectedVoice(e.target.value)}
@@ -270,7 +270,7 @@ export default function VisualVoiceAgent() {
               </button>
             </div>
           </div>
-        </header>
+        </div>
 
         <div className="lg:hidden bg-slate-900/50 border-b border-slate-700 p-4">
           <div className="h-32">
