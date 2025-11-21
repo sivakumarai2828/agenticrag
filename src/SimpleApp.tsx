@@ -305,7 +305,8 @@ export default function SimpleApp() {
         onConnectionChange={setIsVoiceConnected}
       />
 
-      <div className="flex items-center justify-end px-6 py-3">
+      <div className="flex items-center justify-between px-6 py-3">
+        <Toggles voiceEnabled={voiceEnabled} onVoiceToggle={toggleVoice} />
         <button
           onClick={() => setShowUploadModal(true)}
           className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg hover:from-violet-700 hover:to-fuchsia-700 transition-all shadow-sm"
