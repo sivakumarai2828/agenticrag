@@ -376,6 +376,8 @@ IMPORTANT: When users ask to send email reports WITHOUT specifying an email addr
       let result: any;
 
       if (name === 'query_transactions') {
+        console.log('Calling transaction-query with args:', args);
+
         const response = await fetch(
           `${supabaseUrl}/functions/v1/transaction-query`,
           {
@@ -385,6 +387,8 @@ IMPORTANT: When users ask to send email reports WITHOUT specifying an email addr
           }
         );
 
+        console.log('Transaction query response status:', response.status);
+
         if (!response.ok) {
           result = {
             success: false,
@@ -393,12 +397,39 @@ IMPORTANT: When users ask to send email reports WITHOUT specifying an email addr
           };
         } else {
           result = await response.json();
+          console.log('Transaction query result:', result);
 
-          if (result.success && result.summary) {
+          if (result.success && result.summary && result.summary.transactions) {
+            const transactions = result.summary.transactions;
+            console.log('Transactions found:', transactions.length);
+
+            if (transactions.length > 0) {
+              const columns = Object.keys(transactions[0]).filter(k => k !== 'id');
+              const rows = transactions.map((t: any) => {
+                const row: any = {};
+                columns.forEach(col => {
+                  row[col] = t[col];
+                });
+                return row;
+              });
+
+              console.log('Formatted table data:', { columns, rows });
+
+              pendingMessageRef.current = {
+                text: result.voiceSummary,
+                sources: ['DB'],
+                tableData: { columns, rows },
+              };
+            } else {
+              pendingMessageRef.current = {
+                text: result.voiceSummary,
+                sources: ['DB'],
+              };
+            }
+          } else {
             pendingMessageRef.current = {
-              text: result.voiceSummary,
+              text: result.voiceSummary || 'Query completed but no data found.',
               sources: ['DB'],
-              tableData: result.summary,
             };
           }
         }
