@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 
 interface VoiceControlsProps {
@@ -7,21 +7,33 @@ interface VoiceControlsProps {
   isEnabled: boolean;
   onToggle: () => void;
   onConnectionChange?: (isConnected: boolean) => void;
+  onStatusChange?: (status: 'idle' | 'connecting' | 'connected' | 'error') => void;
+  onListeningChange?: (isListening: boolean) => void;
+  onSpeakingChange?: (isSpeaking: boolean) => void;
+  onAudioLevelChange?: (level: number) => void;
+  selectedVoice?: string;
+  enableVAD?: boolean;
 }
 
-export default function VoiceControls({
+const VoiceControls = forwardRef<any, VoiceControlsProps>(({
   onTranscript,
   onAssistantMessage,
   isEnabled,
   onToggle,
   onConnectionChange,
-}: VoiceControlsProps) {
+  onStatusChange,
+  onListeningChange,
+  onSpeakingChange,
+  onAudioLevelChange,
+  selectedVoice: selectedVoiceProp = 'alloy',
+  enableVAD: enableVADProp = true,
+}, ref) => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
-  const [selectedVoice, setSelectedVoice] = useState<string>('alloy');
-  const [enableVAD, setEnableVAD] = useState(true);
+  const [selectedVoice, setSelectedVoice] = useState<string>(selectedVoiceProp);
+  const [enableVAD, setEnableVAD] = useState(enableVADProp);
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
@@ -36,6 +48,30 @@ export default function VoiceControls({
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
+    setSelectedVoice(selectedVoiceProp);
+  }, [selectedVoiceProp]);
+
+  useEffect(() => {
+    setEnableVAD(enableVADProp);
+  }, [enableVADProp]);
+
+  useEffect(() => {
+    onStatusChange?.(status);
+  }, [status, onStatusChange]);
+
+  useEffect(() => {
+    onListeningChange?.(isListening);
+  }, [isListening, onListeningChange]);
+
+  useEffect(() => {
+    onSpeakingChange?.(isSpeaking);
+  }, [isSpeaking, onSpeakingChange]);
+
+  useEffect(() => {
+    onAudioLevelChange?.(audioLevel);
+  }, [audioLevel, onAudioLevelChange]);
+
+  useEffect(() => {
     return () => {
       cleanup();
     };
@@ -46,6 +82,10 @@ export default function VoiceControls({
       cleanup();
     }
   }, [isEnabled]);
+
+  useImperativeHandle(ref, () => ({
+    connectToOpenAI,
+  }));
 
 
   const connectToOpenAI = async () => {
@@ -589,123 +629,7 @@ When users request charts, use the generate_transaction_chart function with the 
     }
   };
 
-  return (
-    <div className="flex items-center gap-4">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={handleToggle}
-          disabled={!isEnabled || status === 'connecting'}
-          className={`p-3 rounded-full transition-all ${
-            status === 'connected'
-              ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg'
-              : status === 'connecting'
-              ? 'bg-yellow-500 text-white'
-              : 'bg-blue-500 hover:bg-blue-600 text-white'
-          } ${!isEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-          title={
-            !isEnabled
-              ? 'Enable voice mode first'
-              : status === 'connected'
-              ? 'Disconnect'
-              : status === 'connecting'
-              ? 'Connecting...'
-              : 'Connect to OpenAI Realtime'
-          }
-        >
-          {status === 'connected' ? (
-            <MicOff className="w-5 h-5" />
-          ) : (
-            <Mic className="w-5 h-5" />
-          )}
-        </button>
+  return null;
+});
 
-        {status === 'connected' && (
-          <div className="flex items-center gap-2">
-            <div className="w-16 h-2 bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-green-500 transition-all duration-100"
-                style={{ width: `${audioLevel}%` }}
-              />
-            </div>
-
-            {isListening && (
-              <div className="flex items-center gap-1 text-green-500">
-                <Mic className="w-4 h-4" />
-                <span className="text-xs">Listening</span>
-              </div>
-            )}
-
-            {isSpeaking && (
-              <div className="flex items-center gap-1 text-blue-500">
-                <Volume2 className="w-4 h-4" />
-                <span className="text-xs">Speaking</span>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {status === 'connected' && (
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <span>Voice:</span>
-            <select
-              value={selectedVoice}
-              onChange={(e) => setSelectedVoice(e.target.value)}
-              className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 cursor-not-allowed opacity-60"
-              disabled
-              title="Voice can only be changed before connecting"
-            >
-              <option value="alloy">Alloy - Neutral</option>
-              <option value="echo">Echo - Male</option>
-              <option value="shimmer">Shimmer - Female</option>
-            </select>
-          </label>
-
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={enableVAD}
-              onChange={(e) => setEnableVAD(e.target.checked)}
-              disabled
-              title="VAD can only be changed before connecting"
-              className="cursor-not-allowed"
-            />
-            <span>Auto-detect speech</span>
-          </label>
-        </div>
-      )}
-
-      {status === 'idle' && (
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <span>Voice:</span>
-            <select
-              value={selectedVoice}
-              onChange={(e) => setSelectedVoice(e.target.value)}
-              className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-            >
-              <option value="alloy">Alloy - Neutral</option>
-              <option value="echo">Echo - Male</option>
-              <option value="shimmer">Shimmer - Female</option>
-            </select>
-          </label>
-
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={enableVAD}
-              onChange={(e) => setEnableVAD(e.target.checked)}
-              className="cursor-pointer"
-            />
-            <span>Auto-detect speech</span>
-          </label>
-        </div>
-      )}
-
-      {status === 'error' && (
-        <span className="text-red-500 text-sm">Connection failed</span>
-      )}
-    </div>
-  );
-}
+export default VoiceControls;

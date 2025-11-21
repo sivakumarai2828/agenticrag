@@ -1,4 +1,4 @@
-import { useState, KeyboardEvent } from 'react';
+import React, { useState, KeyboardEvent } from 'react';
 import { Send, Zap, Upload, X, Database, MessageSquare } from 'lucide-react';
 import Toggles from './components/Toggles';
 import QuickActions from './components/QuickActions';
@@ -42,8 +42,15 @@ export default function SimpleApp() {
   const [currentCitations, setCurrentCitations] = useState<(VectorResult | WebResult)[]>([]);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [isVoiceConnected, setIsVoiceConnected] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [selectedVoice, setSelectedVoice] = useState('alloy');
+  const [enableVAD, setEnableVAD] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [lastClientId, setLastClientId] = useState<number | null>(null);
+  const voiceControlsRef = React.useRef<any>(null);
 
   const [metrics, setMetrics] = useState({
     totalLatency: 0,
@@ -246,7 +253,21 @@ export default function SimpleApp() {
   };
 
   const toggleVoice = () => {
-    setVoiceEnabled(!voiceEnabled);
+    const newVoiceEnabled = !voiceEnabled;
+    setVoiceEnabled(newVoiceEnabled);
+    if (!newVoiceEnabled) {
+      setVoiceStatus('idle');
+      setIsVoiceConnected(false);
+      setIsListening(false);
+      setIsSpeaking(false);
+      setAudioLevel(0);
+    }
+  };
+
+  const handleVoiceConnect = () => {
+    if (voiceControlsRef.current?.connectToOpenAI) {
+      voiceControlsRef.current.connectToOpenAI();
+    }
   };
 
   return (
@@ -298,15 +319,34 @@ export default function SimpleApp() {
       ) : (
         <>
           <VoiceControls
+        ref={voiceControlsRef}
         onTranscript={handleVoiceTranscript}
         onAssistantMessage={handleVoiceAssistantMessage}
         isEnabled={voiceEnabled}
         onToggle={toggleVoice}
         onConnectionChange={setIsVoiceConnected}
+        onStatusChange={setVoiceStatus}
+        onListeningChange={setIsListening}
+        onSpeakingChange={setIsSpeaking}
+        onAudioLevelChange={setAudioLevel}
+        selectedVoice={selectedVoice}
+        enableVAD={enableVAD}
       />
 
       <div className="flex items-center justify-between px-6 py-3">
-        <Toggles voiceEnabled={voiceEnabled} onVoiceToggle={toggleVoice} />
+        <Toggles
+          voiceEnabled={voiceEnabled}
+          onVoiceToggle={toggleVoice}
+          voiceStatus={voiceStatus}
+          onVoiceConnect={handleVoiceConnect}
+          isListening={isListening}
+          isSpeaking={isSpeaking}
+          audioLevel={audioLevel}
+          selectedVoice={selectedVoice}
+          onVoiceChange={setSelectedVoice}
+          enableVAD={enableVAD}
+          onVADChange={setEnableVAD}
+        />
         <button
           onClick={() => setShowUploadModal(true)}
           className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg hover:from-violet-700 hover:to-fuchsia-700 transition-all shadow-sm"
