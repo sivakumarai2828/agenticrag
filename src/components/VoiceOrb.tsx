@@ -30,8 +30,8 @@ export default function VoiceOrb({ status, audioElement, audioStream, transcript
         angle: Math.random() * Math.PI * 2,
         radius: 0,
         speed: 0.5 + Math.random() * 1,
-        size: 1 + Math.random() * 2,
-        opacity: 0.3 + Math.random() * 0.7,
+        size: 1.5 + Math.random() * 2.5,
+        opacity: 0.5 + Math.random() * 0.5,
       });
     }
   }, []);
@@ -142,21 +142,21 @@ export default function VoiceOrb({ status, audioElement, audioStream, transcript
       const orbGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, currentRadius);
 
       if (status === 'listening') {
-        orbGradient.addColorStop(0, 'rgba(34, 197, 94, 0.3)');
-        orbGradient.addColorStop(0.5, 'rgba(34, 197, 94, 0.1)');
+        orbGradient.addColorStop(0, 'rgba(34, 197, 94, 0.4)');
+        orbGradient.addColorStop(0.5, 'rgba(34, 197, 94, 0.15)');
         orbGradient.addColorStop(1, 'rgba(34, 197, 94, 0)');
       } else if (status === 'speaking') {
-        orbGradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
-        orbGradient.addColorStop(0.5, 'rgba(59, 130, 246, 0.1)');
+        orbGradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+        orbGradient.addColorStop(0.5, 'rgba(59, 130, 246, 0.15)');
         orbGradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
       } else if (status === 'thinking') {
-        orbGradient.addColorStop(0, 'rgba(168, 85, 247, 0.3)');
-        orbGradient.addColorStop(0.5, 'rgba(168, 85, 247, 0.1)');
+        orbGradient.addColorStop(0, 'rgba(168, 85, 247, 0.4)');
+        orbGradient.addColorStop(0.5, 'rgba(168, 85, 247, 0.15)');
         orbGradient.addColorStop(1, 'rgba(168, 85, 247, 0)');
       } else {
-        orbGradient.addColorStop(0, 'rgba(100, 116, 139, 0.2)');
-        orbGradient.addColorStop(0.5, 'rgba(100, 116, 139, 0.05)');
-        orbGradient.addColorStop(1, 'rgba(100, 116, 139, 0)');
+        orbGradient.addColorStop(0, 'rgba(139, 92, 246, 0.25)');
+        orbGradient.addColorStop(0.5, 'rgba(139, 92, 246, 0.08)');
+        orbGradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
       }
 
       ctx.fillStyle = orbGradient;
@@ -165,33 +165,36 @@ export default function VoiceOrb({ status, audioElement, audioStream, transcript
       ctx.fill();
 
       ctx.strokeStyle = status === 'listening'
-        ? 'rgba(34, 197, 94, 0.6)'
+        ? 'rgba(34, 197, 94, 0.8)'
         : status === 'speaking'
-        ? 'rgba(59, 130, 246, 0.6)'
+        ? 'rgba(59, 130, 246, 0.8)'
         : status === 'thinking'
-        ? 'rgba(168, 85, 247, 0.6)'
-        : 'rgba(100, 116, 139, 0.3)';
-      ctx.lineWidth = 2;
+        ? 'rgba(168, 85, 247, 0.8)'
+        : 'rgba(139, 92, 246, 0.5)';
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = ctx.strokeStyle;
       ctx.beginPath();
       ctx.arc(centerX, centerY, currentRadius, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.shadowBlur = 0;
 
-      const glowGradient = ctx.createRadialGradient(centerX, centerY, currentRadius * 0.8, centerX, centerY, currentRadius * 1.2);
+      const glowGradient = ctx.createRadialGradient(centerX, centerY, currentRadius * 0.7, centerX, centerY, currentRadius * 1.3);
       glowGradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
 
       if (status === 'listening') {
-        glowGradient.addColorStop(1, 'rgba(34, 197, 94, 0.3)');
+        glowGradient.addColorStop(1, 'rgba(34, 197, 94, 0.4)');
       } else if (status === 'speaking') {
-        glowGradient.addColorStop(1, 'rgba(59, 130, 246, 0.3)');
+        glowGradient.addColorStop(1, 'rgba(59, 130, 246, 0.4)');
       } else if (status === 'thinking') {
-        glowGradient.addColorStop(1, 'rgba(168, 85, 247, 0.3)');
+        glowGradient.addColorStop(1, 'rgba(168, 85, 247, 0.4)');
       } else {
-        glowGradient.addColorStop(1, 'rgba(100, 116, 139, 0.1)');
+        glowGradient.addColorStop(1, 'rgba(139, 92, 246, 0.2)');
       }
 
       ctx.fillStyle = glowGradient;
       ctx.beginPath();
-      ctx.arc(centerX, centerY, currentRadius * 1.2, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, currentRadius * 1.3, 0, Math.PI * 2);
       ctx.fill();
 
       particles.current.forEach((particle, i) => {
@@ -219,7 +222,7 @@ export default function VoiceOrb({ status, audioElement, audioStream, transcript
         const y = centerY + Math.sin(particle.angle) * particle.radius;
 
         const distance = Math.abs(particle.radius - currentRadius) / currentRadius;
-        const alpha = particle.opacity * Math.max(0, 1 - distance * 2);
+        const alpha = particle.opacity * Math.max(0.3, 1 - distance * 1.5);
 
         if (status === 'listening') {
           ctx.fillStyle = `rgba(34, 197, 94, ${alpha})`;
@@ -228,12 +231,15 @@ export default function VoiceOrb({ status, audioElement, audioStream, transcript
         } else if (status === 'thinking') {
           ctx.fillStyle = `rgba(168, 85, 247, ${alpha})`;
         } else {
-          ctx.fillStyle = `rgba(139, 92, 246, ${alpha * 0.5})`;
+          ctx.fillStyle = `rgba(139, 92, 246, ${alpha * 0.7})`;
         }
 
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = ctx.fillStyle;
         ctx.beginPath();
         ctx.arc(x, y, particle.size, 0, Math.PI * 2);
         ctx.fill();
+        ctx.shadowBlur = 0;
       });
 
       time += 0.02;
@@ -257,44 +263,41 @@ export default function VoiceOrb({ status, audioElement, audioStream, transcript
           className="w-full h-full"
           style={{ display: 'block' }}
         />
+
+        {transcript && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 mt-32 max-w-xl w-full px-6 z-10 animate-in fade-in duration-300">
+            <div className="bg-slate-900/95 backdrop-blur-md border border-cyan-400/40 rounded-2xl px-6 py-4 text-center shadow-2xl">
+              <p className="text-white text-xl font-light leading-relaxed">{transcript}</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {transcript && (
-        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 max-w-2xl w-full px-6">
-          <div className="bg-slate-900/90 backdrop-blur-sm border border-cyan-500/30 rounded-2xl p-6 text-center">
-            <p className="text-cyan-300 text-sm mb-2 font-medium">You said:</p>
-            <p className="text-white text-lg">{transcript}</p>
-          </div>
+      <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 flex flex-col items-center space-y-4">
+        <div className={`text-xl font-light tracking-wide transition-colors duration-300 ${
+          status === 'listening' ? 'text-green-400' :
+          status === 'speaking' ? 'text-blue-400' :
+          status === 'thinking' ? 'text-purple-400' :
+          'text-gray-500'
+        }`}>
+          {status === 'listening' && 'Listening...'}
+          {status === 'speaking' && 'Speaking...'}
+          {status === 'thinking' && 'Thinking...'}
+          {status === 'idle' && 'Ready'}
         </div>
-      )}
 
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
-        <div className="flex flex-col items-center space-y-3">
-          <div className={`text-lg font-medium transition-colors duration-300 ${
+        <div className={`p-3 rounded-full transition-all duration-300 ${
+          status === 'listening' ? 'bg-green-500/20 animate-pulse' :
+          status === 'speaking' ? 'bg-blue-500/20 animate-pulse' :
+          status === 'thinking' ? 'bg-purple-500/20 animate-pulse' :
+          'bg-gray-700/20'
+        }`}>
+          <Mic className={`w-5 h-5 ${
             status === 'listening' ? 'text-green-400' :
             status === 'speaking' ? 'text-blue-400' :
             status === 'thinking' ? 'text-purple-400' :
             'text-gray-500'
-          }`}>
-            {status === 'listening' && 'Listening...'}
-            {status === 'speaking' && 'Speaking...'}
-            {status === 'thinking' && 'Thinking...'}
-            {status === 'idle' && 'Ready'}
-          </div>
-
-          <div className={`p-3 rounded-full transition-all duration-300 ${
-            status === 'listening' ? 'bg-green-500/20 animate-pulse' :
-            status === 'speaking' ? 'bg-blue-500/20 animate-pulse' :
-            status === 'thinking' ? 'bg-purple-500/20 animate-pulse' :
-            'bg-gray-700/20'
-          }`}>
-            <Mic className={`w-5 h-5 ${
-              status === 'listening' ? 'text-green-400' :
-              status === 'speaking' ? 'text-blue-400' :
-              status === 'thinking' ? 'text-purple-400' :
-              'text-gray-500'
-            }`} />
-          </div>
+          }`} />
         </div>
       </div>
     </div>
