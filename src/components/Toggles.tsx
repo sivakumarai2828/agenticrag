@@ -27,14 +27,17 @@ export default function Toggles({ voiceEnabled = false, onVoiceToggle }: Toggles
       {onVoiceToggle && (
         <button
           onClick={onVoiceToggle}
-          className={`flex items-center justify-center gap-2 px-4 py-2 rounded-full transition-all shadow-sm ${
+          className={`flex items-center gap-3 px-5 py-2.5 rounded-full transition-all duration-200 ${
             voiceEnabled
-              ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700'
-              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+              ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 shadow-lg shadow-green-200'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
           }`}
           title={voiceEnabled ? 'Click to turn off voice mode' : 'Click to turn on voice mode'}
         >
           {voiceEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+          <span className="text-sm font-semibold">
+            {voiceEnabled ? 'Voice Mode On' : 'Voice Mode Off'}
+          </span>
         </button>
       )}
     </div>
