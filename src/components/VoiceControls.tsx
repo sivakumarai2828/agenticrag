@@ -46,6 +46,8 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
   const voiceSessionActiveRef = useRef<boolean>(false);
   const pendingMessageRef = useRef<{ text: string; sources?: any[]; tableData?: any; chartData?: any } | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const initialResponseCancelledRef = useRef<boolean>(false);
+  const userHasSpokenRef = useRef<boolean>(false);
 
   useEffect(() => {
     setSelectedVoice(selectedVoiceProp);
@@ -219,6 +221,9 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
       session: {
         modalities: ['text', 'audio'],
         instructions: `You are a helpful AI assistant with access to transaction data, charts, and email capabilities.
+
+CRITICAL: Do NOT greet the user when the session starts. Wait for the user to speak first. Only respond after the user asks a question or makes a request.
+
 Be concise and helpful. When users ask about transactions, use the appropriate function.
 When users request charts, use the generate_transaction_chart function with the correct chartType:
 - Use "pie" for pie charts (status distribution)
@@ -330,6 +335,7 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
       case 'conversation.item.input_audio_transcription.completed':
         if (event.transcript) {
           console.log('User transcript:', event.transcript);
+          userHasSpokenRef.current = true;
           onTranscript(event.transcript);
         }
         break;
@@ -383,6 +389,16 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
             );
 
             if (!hasFunctionCalls) {
+              // Skip initial greeting if user hasn't spoken yet
+              if (!userHasSpokenRef.current && !initialResponseCancelledRef.current) {
+                console.log('Suppressing initial auto-greeting');
+                initialResponseCancelledRef.current = true;
+                assistantResponseRef.current = '';
+                pendingMessageRef.current = null;
+                setIsSpeaking(false);
+                return;
+              }
+
               // Queue text message to display after audio finishes
               pendingMessageRef.current = {
                 text: assistantResponseRef.current,
@@ -641,6 +657,8 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
     }
 
     pendingMessageRef.current = null;
+    initialResponseCancelledRef.current = false;
+    userHasSpokenRef.current = false;
 
     setStatus('idle');
     setIsListening(false);
