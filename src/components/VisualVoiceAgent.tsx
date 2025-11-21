@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, Zap, Volume2, Database, BarChart3 } from 'lucide-react';
-import AudioWaveform from './AudioWaveform';
+import VoiceOrb from './VoiceOrb';
 import TableView from './TableView';
 import ChartView from './ChartView';
 
@@ -20,6 +20,7 @@ export default function VisualVoiceAgent() {
   const [voiceStatus, setVoiceStatus] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle');
   const [isConnected, setIsConnected] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState('alloy');
+  const [currentTranscript, setCurrentTranscript] = useState<string>('');
 
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
@@ -295,7 +296,9 @@ IMPORTANT: When users ask to send email reports WITHOUT specifying an email addr
 
       case 'conversation.item.input_audio_transcription.completed':
         if (event.transcript) {
+          setCurrentTranscript(event.transcript);
           addMessage(event.transcript, 'user');
+          setTimeout(() => setCurrentTranscript(''), 3000);
         }
         break;
 
@@ -516,10 +519,11 @@ IMPORTANT: When users ask to send email reports WITHOUT specifying an email addr
   return (
     <div className="flex h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="hidden lg:flex lg:w-2/5 border-r border-slate-700">
-        <AudioWaveform
+        <VoiceOrb
           status={voiceStatus}
           audioElement={audioElementRef.current}
           audioStream={audioStreamRef.current}
+          transcript={currentTranscript}
         />
       </div>
 
@@ -562,11 +566,12 @@ IMPORTANT: When users ask to send email reports WITHOUT specifying an email addr
         </div>
 
         <div className="lg:hidden bg-slate-900/50 border-b border-slate-700 p-4">
-          <div className="h-32">
-            <AudioWaveform
+          <div className="h-64">
+            <VoiceOrb
               status={voiceStatus}
               audioElement={audioElementRef.current}
               audioStream={audioStreamRef.current}
+              transcript={currentTranscript}
             />
           </div>
         </div>
