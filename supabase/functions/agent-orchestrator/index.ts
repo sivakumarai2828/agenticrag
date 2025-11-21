@@ -140,7 +140,7 @@ Deno.serve(async (req: Request) => {
         const emailStart = Date.now();
 
         const emailMatch = query.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/);
-        const clientMatch = query.match(/client\s*(\d+)/i) || query.match(/(\d{4})/);
+        const clientMatch = query.match(/client\s*(\d+)/i) || query.match(/(\d{3,})/);
 
         const emailTo = emailMatch ? emailMatch[0] : metadata?.email || "user@example.com";
         const clientId = clientMatch ? parseInt(clientMatch[1]) : metadata?.lastClientId;
@@ -203,7 +203,7 @@ Deno.serve(async (req: Request) => {
         steps.push({ name: "Transaction Query", latency: 0, timestamp: Date.now() });
         const queryStart = Date.now();
 
-        const clientMatch = query.match(/client\s*(\d+)/i) || query.match(/(\d{4})/);
+        const clientMatch = query.match(/client\s*(\d+)/i) || query.match(/(\d{3,})/);
         const clientId = clientMatch ? parseInt(clientMatch[1]) : null;
 
         const queryResponse = await fetch(
@@ -233,7 +233,7 @@ Deno.serve(async (req: Request) => {
         steps.push({ name: "Transaction Chart", latency: 0, timestamp: Date.now() });
         const chartStart = Date.now();
 
-        const clientMatch = query.match(/client\s*(\d+)/i) || query.match(/(\d{4})/);
+        const clientMatch = query.match(/client\s*(\d+)/i) || query.match(/(\d{3,})/);
         const clientId = clientMatch ? parseInt(clientMatch[1]) : null;
 
         const chartResponse = await fetch(
