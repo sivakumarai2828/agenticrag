@@ -385,32 +385,46 @@ export default function SimpleApp() {
             ) : (
               <div className="grid grid-cols-2 gap-3 text-left">
               <button
-                onClick={() => setInput('Show me top merchants by revenue')}
+                onClick={() => setInput('Show transactions for client 501')}
                 className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
               >
-                <p className="text-sm font-medium text-gray-800">Top merchants analysis</p>
-                <p className="text-xs text-gray-500 mt-1">→ SQL query</p>
+                <p className="text-sm font-medium text-gray-800">Transaction analysis</p>
+                <p className="text-xs text-gray-500 mt-1">→ Database query</p>
               </button>
               <button
-                onClick={() => setInput('Plot revenue trends for last 7 days')}
+                onClick={() => setInput('Create a pie chart for client 501')}
                 className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
               >
-                <p className="text-sm font-medium text-gray-800">Revenue trend chart</p>
+                <p className="text-sm font-medium text-gray-800">Generate chart</p>
                 <p className="text-xs text-gray-500 mt-1">→ Visualization</p>
               </button>
               <button
-                onClick={() => setInput('What are the authentication best practices?')}
+                onClick={() => setInput('What is RAG and how does it work?')}
                 className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
               >
-                <p className="text-sm font-medium text-gray-800">Security documentation</p>
-                <p className="text-xs text-gray-500 mt-1">→ RAG search</p>
+                <p className="text-sm font-medium text-gray-800">Product documentation</p>
+                <p className="text-xs text-gray-500 mt-1">→ Vector search</p>
               </button>
               <button
-                onClick={() => setInput('Check API health status')}
+                onClick={() => setInput('Search the web for latest AI news')}
                 className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
               >
-                <p className="text-sm font-medium text-gray-800">API monitoring</p>
-                <p className="text-xs text-gray-500 mt-1">→ Status check</p>
+                <p className="text-sm font-medium text-gray-800">Web search</p>
+                <p className="text-xs text-gray-500 mt-1">→ Real-time data</p>
+              </button>
+              <button
+                onClick={() => setInput('Send transaction report for client 501')}
+                className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
+              >
+                <p className="text-sm font-medium text-gray-800">Email report</p>
+                <p className="text-xs text-gray-500 mt-1">→ Email delivery</p>
+              </button>
+              <button
+                onClick={() => setInput('What documents are available in the system?')}
+                className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
+              >
+                <p className="text-sm font-medium text-gray-800">Document index</p>
+                <p className="text-xs text-gray-500 mt-1">→ Knowledge base</p>
               </button>
             </div>
             )}
