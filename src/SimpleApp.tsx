@@ -1,5 +1,5 @@
 import React, { useState, KeyboardEvent } from 'react';
-import { Send, Zap, Upload, X, Database, MessageSquare } from 'lucide-react';
+import { Send, Zap, Upload, X, Database, MessageSquare, Activity } from 'lucide-react';
 import Toggles from './components/Toggles';
 import QuickActions from './components/QuickActions';
 import InsightsBar from './components/InsightsBar';
@@ -8,6 +8,7 @@ import ChatThread, { Message } from './components/ChatThread';
 import SimpleTraceDrawer from './components/SimpleTraceDrawer';
 import DocumentUpload from './components/DocumentUpload';
 import DataIndex from './components/DataIndex';
+import VisualVoiceAgent from './components/VisualVoiceAgent';
 import { VectorResult } from './services/mockVector';
 import { WebResult } from './services/mockWeb';
 import { processWithAgent } from './services/agentService';
@@ -33,7 +34,7 @@ function formatTransactionTable(summary: TransactionSummary) {
 }
 
 export default function SimpleApp() {
-  const [activeTab, setActiveTab] = useState<'chat' | 'data'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'data' | 'visual'>('chat');
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -298,6 +299,17 @@ export default function SimpleApp() {
               <span className="text-sm font-medium">Chat</span>
             </button>
             <button
+              onClick={() => setActiveTab('visual')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
+                activeTab === 'visual'
+                  ? 'bg-violet-100 text-violet-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Activity className="w-4 h-4" />
+              <span className="text-sm font-medium">Visual Voice</span>
+            </button>
+            <button
               onClick={() => setActiveTab('data')}
               className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
                 activeTab === 'data'
@@ -315,6 +327,10 @@ export default function SimpleApp() {
       {activeTab === 'data' ? (
         <div className="flex-1 overflow-y-auto p-6">
           <DataIndex />
+        </div>
+      ) : activeTab === 'visual' ? (
+        <div className="flex-1">
+          <VisualVoiceAgent />
         </div>
       ) : (
         <>
