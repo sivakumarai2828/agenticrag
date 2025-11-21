@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react';
 import { User, Eye } from 'lucide-react';
 import AnswerCard from './AnswerCard';
 import { IntentType } from '../router/intentRouter';
@@ -25,8 +26,19 @@ interface ChatThreadProps {
 }
 
 export default function ChatThread({ messages, onViewTrace, isLoading }: ChatThreadProps) {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-6">
+    <div ref={containerRef} className="flex-1 overflow-y-auto px-6 py-6">
       <div className="max-w-4xl mx-auto space-y-6">
         {messages.map(message => (
           <div key={message.id}>
@@ -97,6 +109,7 @@ export default function ChatThread({ messages, onViewTrace, isLoading }: ChatThr
             </div>
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
     </div>
   );
