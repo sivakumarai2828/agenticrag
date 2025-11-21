@@ -223,7 +223,9 @@ Be concise and helpful. When users ask about transactions, use the appropriate f
 When users request charts, use the generate_transaction_chart function with the correct chartType:
 - Use "pie" for pie charts (status distribution)
 - Use "line" for line charts (trends over time)
-- Use "bar" for bar charts (amounts over time, this is default)`,
+- Use "bar" for bar charts (amounts over time, this is default)
+
+IMPORTANT: When users ask to send email reports WITHOUT specifying an email address, use the default email: sivakumarai2828@gmail.com`,
         voice: selectedVoice,
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
@@ -290,7 +292,7 @@ When users request charts, use the generate_transaction_chart function with the 
           {
             type: 'function',
             name: 'send_transaction_email',
-            description: 'Send an email report with transaction data to a specified email address.',
+            description: 'Send an email report with transaction data. If user does not specify an email address, use the default email: sivakumarai2828@gmail.com',
             parameters: {
               type: 'object',
               properties: {
@@ -300,10 +302,11 @@ When users request charts, use the generate_transaction_chart function with the 
                 },
                 email: {
                   type: 'string',
-                  description: 'Email address to send the report to',
+                  description: 'Email address to send the report to. Default: sivakumarai2828@gmail.com',
+                  default: 'sivakumarai2828@gmail.com',
                 },
               },
-              required: ['clientId', 'email'],
+              required: ['clientId'],
             },
           },
         ],
@@ -490,32 +493,63 @@ When users request charts, use the generate_transaction_chart function with the 
           }
         }
       } else if (name === 'send_transaction_email') {
-        const response = await fetch(
-          `${supabaseUrl}/functions/v1/transaction-email`,
+        const defaultEmail = 'sivakumarai2828@gmail.com';
+        const recipientEmail = args.email || defaultEmail;
+
+        console.log('📧 EMAIL FUNCTION CALLED - Client:', args.clientId, '| To:', recipientEmail, '| Original:', args.email);
+
+        // First, fetch transaction data
+        const transactionResponse = await fetch(
+          `${supabaseUrl}/functions/v1/transaction-query`,
           {
             method: 'POST',
             headers,
-            body: JSON.stringify(args),
+            body: JSON.stringify({ clientId: args.clientId }),
           }
         );
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Email send failed:', response.status, errorText);
+        if (!transactionResponse.ok) {
           result = {
             success: false,
-            error: `Failed to send email: ${response.status}`,
-            voiceSummary: 'Sorry, I encountered an error sending the email.',
+            error: 'Failed to fetch transaction data',
+            voiceSummary: 'Sorry, I could not retrieve the transaction data to send.',
           };
         } else {
-          result = await response.json();
+          const transactionData = await transactionResponse.json();
 
-          if (result.success && result.voiceSummary) {
-            // Queue message to display after audio finishes
-            pendingMessageRef.current = {
-              text: result.voiceSummary,
-              sources: ['EMAIL'],
+          // Now send the email with transaction data
+          const response = await fetch(
+            `${supabaseUrl}/functions/v1/transaction-email`,
+            {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                to: recipientEmail,
+                subject: `Transaction Report for Client ${args.clientId}`,
+                transactionSummary: transactionData.summary,
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Email send failed:', response.status, errorText);
+            result = {
+              success: false,
+              error: `Failed to send email: ${response.status}`,
+              voiceSummary: 'Sorry, I encountered an error sending the email.',
             };
+          } else {
+            result = await response.json();
+
+            if (result.success) {
+              // Queue message to display after audio finishes
+              pendingMessageRef.current = {
+                text: `Email report sent successfully to ${recipientEmail}`,
+                sources: ['EMAIL'],
+              };
+              result.voiceSummary = `I've sent the transaction report to ${recipientEmail}`;
+            }
           }
         }
       }
