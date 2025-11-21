@@ -225,7 +225,9 @@ When users request charts, use the generate_transaction_chart function with the 
 - Use "line" for line charts (trends over time)
 - Use "bar" for bar charts (amounts over time, this is default)
 
-IMPORTANT: When users ask to send email reports WITHOUT specifying an email address, use the default email: sivakumarai2828@gmail.com`,
+IMPORTANT: When users ask to send email reports WITHOUT specifying an email address, use the default email: sivakumarai2828@gmail.com
+
+When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, friendly farewell like "Goodbye!" or "See you later!" Do NOT ask how you can help.`,
         voice: selectedVoice,
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
