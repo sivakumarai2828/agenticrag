@@ -76,8 +76,9 @@ function classifyIntent(query: string): Intent {
 
   if (
     lowerQuery.match(
-      /\b(search web|google|latest|news|current events|external)\b/
-    )
+      /\b(search|google|latest|news|current|recent|breaking|real-time|realtime|web search|look up|find online|internet)\b/
+    ) &&
+    !lowerQuery.match(/\b(transaction|client|payment|purchase|refund|document|guide|explain|chart)\b/)
   ) {
     return "web";
   }
@@ -315,6 +316,37 @@ Deno.serve(async (req: Request) => {
           response.chartData = chartData.chartData;
           response.sources = ["DB"];
           steps[steps.length - 1].latency = Date.now() - chartStart;
+        }
+        break;
+      }
+
+      case "web": {
+        steps.push({ name: "Web Search", latency: 0, timestamp: Date.now() });
+        const webStart = Date.now();
+
+        const webResponse = await fetch(
+          `${supabaseUrl}/functions/v1/web-search-tool`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({ query }),
+          }
+        );
+
+        if (webResponse.ok) {
+          const webData = await webResponse.json();
+          response.content = webData.answer || "Web search completed.";
+          response.citations = webData.results || [];
+          response.sources = ["WEB"];
+          steps[steps.length - 1].latency = Date.now() - webStart;
+        } else {
+          const errorData = await webResponse.json();
+          response.content = `Web search failed: ${errorData.error || 'Unknown error'}`;
+          response.sources = ["WEB"];
+          steps[steps.length - 1].latency = Date.now() - webStart;
         }
         break;
       }

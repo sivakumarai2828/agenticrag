@@ -14,9 +14,19 @@ const API_KEYWORDS = ['api', 'downstream', 'health', 'errors', '5xx', '4xx', 'st
 const DOC_KEYWORDS = ['documentation', 'docs', 'policy', 'guide', 'pdf', 'explain', 'how to', 'what is'];
 const TRANSACTION_KEYWORDS = ['transaction', 'purchase', 'refund', 'payment', 'client', 'approved', 'declined', 'spending'];
 const EMAIL_KEYWORDS = ['email', 'send', 'mail', 'report to'];
+const WEB_KEYWORDS = ['search the web', 'web search', 'google', 'latest', 'current', 'recent news', 'breaking news', 'today', 'now', 'real-time', 'look up', 'find online', 'internet search'];
 
 export function classifyIntent(query: string): IntentResult {
   const lowerQuery = query.toLowerCase();
+
+  if (containsKeywords(lowerQuery, WEB_KEYWORDS)) {
+    return {
+      intent: 'web',
+      confidence: 0.95,
+      sources: ['WEB'],
+      reasoning: 'Query explicitly requests web search or real-time information',
+    };
+  }
 
   if (containsKeywords(lowerQuery, EMAIL_KEYWORDS) || lowerQuery.includes('send') && lowerQuery.includes('report')) {
     const params: any = {};
