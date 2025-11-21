@@ -52,6 +52,16 @@ function classifyIntent(query: string): Intent {
 
   if (
     lowerQuery.match(
+      /\b(web|google|latest|news|current|recent|breaking|real-time|realtime|look up|find online|internet)\b/
+    ) ||
+    lowerQuery.match(/\bsearch\s+(the\s+)?web\b/) ||
+    (lowerQuery.match(/\bsearch\b/) && lowerQuery.match(/\b(latest|news|online|internet)\b/))
+  ) {
+    return "web";
+  }
+
+  if (
+    lowerQuery.match(
       /\b(how|what|why|explain|documentation|docs|guide|tutorial)\b/
     )
   ) {
@@ -72,15 +82,6 @@ function classifyIntent(query: string): Intent {
 
   if (lowerQuery.match(/\b(status|health|uptime|api|service)\b/)) {
     return "api_status";
-  }
-
-  if (
-    lowerQuery.match(
-      /\b(search|google|latest|news|current|recent|breaking|real-time|realtime|web search|look up|find online|internet)\b/
-    ) &&
-    !lowerQuery.match(/\b(transaction|client|payment|purchase|refund|document|guide|explain|chart)\b/)
-  ) {
-    return "web";
   }
 
   return "general";

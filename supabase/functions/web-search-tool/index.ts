@@ -67,10 +67,64 @@ Deno.serve(async (req: Request) => {
 
     const results = await simulateWebSearch(query, maxResults);
 
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openaiApiKey) {
+      return new Response(
+        JSON.stringify({
+          query,
+          results,
+          answer: `I found ${results.length} web results for "${query}". ${results.map(r => `${r.title}: ${r.snippet}`).join(' ')}`,
+          metadata: {
+            resultsCount: results.length,
+            timestamp: Date.now(),
+          },
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    const searchContext = results.map((r, i) =>
+      `[${i + 1}] ${r.title}\n${r.snippet}\nSource: ${r.url}`
+    ).join('\n\n');
+
+    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful assistant that synthesizes web search results into clear, informative answers. Use the provided search results to answer the user's question."
+          },
+          {
+            role: "user",
+            content: `Based on these web search results, answer the question: "${query}"\n\nSearch Results:\n${searchContext}`
+          }
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    let answer = `I found ${results.length} web results for "${query}".`;
+    if (openaiResponse.ok) {
+      const openaiData = await openaiResponse.json();
+      answer = openaiData.choices[0].message.content;
+    }
+
     return new Response(
       JSON.stringify({
         query,
         results,
+        answer,
         metadata: {
           resultsCount: results.length,
           timestamp: Date.now(),
