@@ -23,55 +23,20 @@ export default function Toggles({ voiceEnabled = false, onVoiceToggle }: Toggles
   };
 
   return (
-    <div className="flex items-center space-x-6 px-6 py-3 bg-white border-b border-gray-200">
+    <div className="flex items-center px-6 py-3 bg-white border-b border-gray-200">
       {onVoiceToggle && (
         <button
           onClick={onVoiceToggle}
-          className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+          className={`flex items-center justify-center gap-2 px-4 py-2 rounded-full transition-all shadow-sm ${
             voiceEnabled
-              ? 'bg-green-100 text-green-700 border border-green-300 hover:bg-green-200'
-              : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+              ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700'
+              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
           }`}
-          title={voiceEnabled ? 'Disable voice mode' : 'Enable voice mode'}
+          title={voiceEnabled ? 'Click to turn off voice mode' : 'Click to turn on voice mode'}
         >
-          {voiceEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-          <span>{voiceEnabled ? 'Voice Mode On' : 'Voice Mode Off'}</span>
+          {voiceEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
         </button>
       )}
-
-      <div className="flex items-center space-x-3">
-        <span className="text-sm font-medium text-gray-700">Sources:</span>
-        {(['vector', 'db', 'web', 'api'] as const).map(source => (
-          <button
-            key={source}
-            onClick={() => toggleSource(source)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              config.sources[source]
-                ? 'bg-violet-100 text-violet-700 border border-violet-300'
-                : 'bg-gray-100 text-gray-500 border border-gray-300'
-            }`}
-          >
-            {source.toUpperCase()}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex items-center space-x-3">
-        <span className="text-sm font-medium text-gray-700">Time:</span>
-        {(['7d', '30d', 'custom'] as const).map(range => (
-          <button
-            key={range}
-            onClick={() => setTimeRange(range)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              config.timeRange === range
-                ? 'bg-violet-100 text-violet-700 border border-violet-300'
-                : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
-            }`}
-          >
-            {range === 'custom' ? 'Custom' : range}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
