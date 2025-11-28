@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 
 interface VoiceControlsProps {
   onTranscript: (text: string) => void;
@@ -19,7 +18,7 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
   onTranscript,
   onAssistantMessage,
   isEnabled,
-  onToggle,
+  // onToggle is passed but not used internally
   onConnectionChange,
   onStatusChange,
   onListeningChange,
@@ -109,14 +108,68 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
       peerConnectionRef.current = pc;
 
       pc.ontrack = (event) => {
-        const audioElement = new Audio();
+        console.log('🔊 Audio track received from OpenAI');
+        console.log('📊 Track details:', {
+          kind: event.track.kind,
+          enabled: event.track.enabled,
+          muted: event.track.muted,
+          readyState: event.track.readyState,
+          streams: event.streams.length
+        });
+
+        // Create or reuse audio element in DOM (helps with autoplay policies)
+        let audioElement = document.getElementById('openai-voice-audio') as HTMLAudioElement;
+        if (!audioElement) {
+          audioElement = document.createElement('audio');
+          audioElement.id = 'openai-voice-audio';
+          audioElement.style.display = 'none'; // Hidden but in DOM
+          document.body.appendChild(audioElement);
+          console.log('📻 Created audio element in DOM');
+        }
+
         audioElement.autoplay = true;
+        audioElement.volume = 1.0; // Ensure volume is at maximum
         audioElement.srcObject = event.streams[0];
         audioElementRef.current = audioElement;
 
-        audioElement.onplay = () => setIsSpeaking(true);
-        audioElement.onpause = () => setIsSpeaking(false);
-        audioElement.onended = () => setIsSpeaking(false);
+        console.log('🎚️ Audio element configured:', {
+          autoplay: audioElement.autoplay,
+          volume: audioElement.volume,
+          muted: audioElement.muted,
+          paused: audioElement.paused
+        });
+
+        audioElement.onplay = () => {
+          console.log('🔊 Audio playback started');
+          setIsSpeaking(true);
+        };
+        audioElement.onpause = () => {
+          console.log('⏸️ Audio playback paused');
+          setIsSpeaking(false);
+        };
+        audioElement.onended = () => {
+          console.log('🔇 Audio playback ended');
+          setIsSpeaking(false);
+        };
+        audioElement.onerror = (error) => {
+          console.error('❌ Audio playback error:', error);
+          console.error('Error details:', audioElement.error);
+        };
+        audioElement.oncanplay = () => {
+          console.log('✅ Audio can play - buffer ready');
+        };
+        audioElement.onloadedmetadata = () => {
+          console.log('📝 Audio metadata loaded');
+        };
+
+        // Attempt to play immediately
+        audioElement.play().then(() => {
+          console.log('✅ Audio play() succeeded');
+        }).catch(err => {
+          console.error('❌ Failed to auto-play audio:', err);
+          console.log('💡 User interaction may be required to enable audio playback');
+          console.log('💡 Try clicking anywhere on the page and reconnecting voice');
+        });
       };
 
       await setupAudioInput(pc);
@@ -220,9 +273,14 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
       type: 'session.update',
       session: {
         modalities: ['text', 'audio'],
-        instructions: `You are a helpful AI assistant with access to transaction data, charts, and email capabilities.
+        instructions: `You are Nexa, a helpful AI voice assistant with access to transaction data, charts, and email capabilities.
 
-CRITICAL: Do NOT greet the user when the session starts. Wait for the user to speak first. Only respond after the user asks a question or makes a request.
+CRITICAL RULES:
+1. NEVER greet the user when the session starts
+2. NEVER say "Hello" or "How can I help you?" unless the user greets you first
+3. WAIT SILENTLY for the user to speak first
+4. ONLY respond after the user asks a question or makes a request
+5. When introducing yourself (if asked), say "I'm Nexa" or "This is Nexa"
 
 Be concise and helpful. When users ask about transactions, use the appropriate function.
 When users request charts, use the generate_transaction_chart function with the correct chartType:
@@ -231,6 +289,12 @@ When users request charts, use the generate_transaction_chart function with the 
 - Use "bar" for bar charts (amounts over time, this is default)
 
 IMPORTANT: When users ask to send email reports WITHOUT specifying an email address, use the default email: sivakumarai2828@gmail.com
+
+WEB SEARCH RULES:
+- When you receive web search results from the web_search function, READ THE RESULTS DIRECTLY to the user
+- DO NOT say "the results didn't contain relevant information" - the results ARE the answer
+- Share the top 3-5 results with their titles and descriptions
+- For restaurant queries, news, weather, or any web search, present the actual search results you received
 
 When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, friendly farewell like "Goodbye!" or "See you later!" Do NOT ask how you can help.`,
         voice: selectedVoice,
@@ -316,6 +380,26 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
               required: ['clientId'],
             },
           },
+          {
+            type: 'function',
+            name: 'web_search',
+            description: 'Search the web for current information, news, weather, restaurants, or any real-time data. Use this when users ask about things outside of the transaction database. IMPORTANT: After calling this function, you MUST read the actual search results to the user - do not reinterpret or say they are not relevant. The function returns real Google search results that answer the user\'s question.',
+            parameters: {
+              type: 'object',
+              properties: {
+                query: {
+                  type: 'string',
+                  description: 'The search query to look up on the web',
+                },
+                maxResults: {
+                  type: 'number',
+                  description: 'Maximum number of search results to return (default: 5)',
+                  default: 5,
+                },
+              },
+              required: ['query'],
+            },
+          },
         ],
         tool_choice: 'auto',
       },
@@ -334,9 +418,11 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
 
       case 'conversation.item.input_audio_transcription.completed':
         if (event.transcript) {
-          console.log('User transcript:', event.transcript);
+          console.log('✅ User transcript captured:', event.transcript);
           userHasSpokenRef.current = true;
           onTranscript(event.transcript);
+        } else {
+          console.warn('⚠️ Transcript event received but no transcript text:', event);
         }
         break;
 
@@ -389,13 +475,21 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
             );
 
             if (!hasFunctionCalls) {
-              // Skip initial greeting if user hasn't spoken yet
-              if (!userHasSpokenRef.current && !initialResponseCancelledRef.current) {
-                console.log('Suppressing initial auto-greeting');
+              // Skip ONLY the very first auto-greeting before user speaks
+              // Check if this looks like a greeting AND user hasn't spoken
+              const looksLikeGreeting = /^(hello|hi|hey|greetings|welcome)/i.test(assistantResponseRef.current.trim());
+
+              if (!userHasSpokenRef.current && looksLikeGreeting && !initialResponseCancelledRef.current) {
+                console.log('Suppressing initial auto-greeting:', assistantResponseRef.current);
                 initialResponseCancelledRef.current = true;
                 assistantResponseRef.current = '';
                 pendingMessageRef.current = null;
                 setIsSpeaking(false);
+                // Stop audio playback if it started
+                if (audioElementRef.current) {
+                  audioElementRef.current.pause();
+                  audioElementRef.current.currentTime = 0;
+                }
                 return;
               }
 
@@ -570,6 +664,54 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
             }
           }
         }
+      } else if (name === 'web_search') {
+        // Call Python backend directly (not Supabase Edge Function)
+        const backendUrl = 'http://localhost:8000';
+
+        const response = await fetch(
+          `${backendUrl}/web-search-tool`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: args.query,
+              maxResults: args.maxResults || 5,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Web search failed:', response.status, errorText);
+          result = {
+            success: false,
+            error: `Failed to search the web: ${response.status}`,
+          };
+        } else {
+          const searchData = await response.json();
+          console.log('✅ Web search results:', searchData);
+
+
+          if (searchData.results && searchData.results.length > 0) {
+            // Format the search results into a detailed, readable summary
+            const topResults = searchData.results.slice(0, 5);
+
+            // Create a simple, direct response that OpenAI will read verbatim
+            const directResponse = topResults.map((r: any, i: number) =>
+              `${i + 1}. ${r.title}: ${r.snippet}`
+            ).join('. ');
+
+            // DON'T set pendingMessageRef - let OpenAI handle the display
+            // This prevents duplicate messages (one from WEB, one from OPENAI)
+
+            // Return ONLY the formatted text - no complex object
+            result = `I found ${searchData.results.length} results. ${directResponse}`;
+          } else {
+            result = 'I could not find any results for that search query.';
+          }
+        }
       }
 
       sendFunctionCallOutput(callId, result);
@@ -669,19 +811,7 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
     onConnectionChange?.(false);
   };
 
-  const handleToggle = async () => {
-    if (!isEnabled) {
-      onToggle();
-      return;
-    }
 
-    if (status === 'connected') {
-      cleanup();
-      onToggle();
-    } else {
-      await connectToOpenAI();
-    }
-  };
 
   return null;
 });

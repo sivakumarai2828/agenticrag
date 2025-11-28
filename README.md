@@ -1,15 +1,17 @@
-# 🤖 Agentic RAG App
+# 🤖 Voice Agentic RAG
 
-An intelligent transaction query system powered by AI agents, RAG (Retrieval-Augmented Generation), and multi-tool orchestration.
+An intelligent voice-powered transaction query system with **Nexa** - your AI assistant powered by advanced agentic AI, RAG (Retrieval-Augmented Generation), and multi-tool orchestration. Speak naturally to query data, generate charts, send reports, and get real-time information.
 
 ## 🌟 Features
 
-- **Agentic AI System**: Intelligent agent orchestration for complex queries
-- **RAG Integration**: Retrieval-Augmented Generation for accurate responses
-- **Multi-Tool Support**: Web search, OpenAI chat, transaction queries, and more
-- **Email Integration**: Send transaction reports via email
-- **Chart Generation**: Visual data representation
-- **Real-time Processing**: Fast and responsive AI-powered queries
+- **🎙️ Voice-First Interface**: Natural voice conversations with Nexa powered by OpenAI's Realtime API
+- **🤖 Agentic AI System**: Intelligent agent orchestration for complex queries
+- **📊 Multi-Modal Responses**: Tables, charts, and structured data visualization
+- **🔍 RAG Integration**: Retrieval-Augmented Generation for accurate, context-aware responses
+- **🌐 Web Search**: Real-time information from the web
+- **📧 Email Integration**: Send transaction reports via email
+- **📈 Chart Generation**: Visual data representation (bar, line, pie charts)
+- **⚡ Real-time Processing**: Fast and responsive AI-powered queries
 
 ## 🏗️ Architecture
 

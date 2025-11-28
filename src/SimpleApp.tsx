@@ -282,7 +282,7 @@ export default function SimpleApp() {
             <div>
               <h1 className="text-xl font-bold text-gray-800">Voice Agentic RAG</h1>
               <p className="text-xs text-gray-500">
-                {isVoiceConnected ? 'Voice-controlled multi-modal responses' : 'Smart routing • Multi-modal responses • Voice-enabled AI'}
+                {isVoiceConnected ? 'Nexa is listening - speak naturally' : 'Smart routing • Multi-modal responses • Voice-enabled AI'}
               </p>
             </div>
           </div>
@@ -371,14 +371,14 @@ export default function SimpleApp() {
                   <Zap className="w-10 h-10 text-white" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-3">
-                  Ask anything, get structured answers
+                  Voice Agentic RAG Agent
                 </h2>
                 <p className="text-gray-600 mb-6">
-                  Intelligent routing to the right data source with multi-modal rendering
+                  Powered by Nexa - your AI voice assistant for intelligent routing and multi-modal responses
                 </p>
                 {isVoiceConnected ? (
                   <div className="bg-gradient-to-r from-violet-50 to-fuchsia-50 border border-violet-200 rounded-xl p-8 max-w-lg mx-auto">
-                    <p className="text-lg font-semibold text-gray-800 mb-2">🎤 Voice Mode Active</p>
+                    <p className="text-lg font-semibold text-gray-800 mb-2">🎤 Nexa is Listening</p>
                     <p className="text-gray-600">Speak naturally to ask questions, query data, or request charts</p>
                   </div>
                 ) : (

@@ -33,6 +33,7 @@ SUPABASE_URL = os.environ.get("VITE_SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("VITE_SUPABASE_ANON_KEY")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("Warning: Supabase credentials missing.")
@@ -99,6 +100,20 @@ class AgentRequest(BaseModel):
 def classify_intent(query: str) -> str:
     lower_query = query.lower()
     
+    # Check for web search FIRST (before doc_rag which also matches 'what', 'tutorial', 'guide', etc.)
+    # Include weather, real-time info, and time-sensitive queries
+    if (re.search(r'\b(web|google|latest|news|current|recent|breaking|real-time|realtime|look up|find online|internet)\b', lower_query) or
+        re.search(r'\b(weather|temperature|forecast|climate)\b', lower_query) or
+        re.search(r'\b(now|today|tonight|tomorrow|this week)\b.*\b(weather|temperature|news|events|happening)\b', lower_query) or
+        re.search(r'\bwhat\'?s\s+(the\s+)?(weather|temperature|news|happening)\b', lower_query) or
+        re.search(r'\bsearch\s+(the\s+)?web\b', lower_query) or
+        re.search(r'\bweb\s+search\b', lower_query) or
+        re.search(r'\bfrom\s+(the\s+)?web\b', lower_query) or
+        re.search(r'\bgoogle\s+search\b', lower_query) or
+        (re.search(r'\bsearch\b', lower_query) and re.search(r'\b(latest|news|online|internet)\b', lower_query)) or
+        (re.search(r'\b(latest|recent|current)\b', lower_query) and re.search(r'\bnews\b', lower_query))):
+        return "web"
+    
     if re.search(r'\b(email|send|mail)\b', lower_query) and (re.search(r'\b(report|transaction|above)\b', lower_query) or '@' in lower_query):
         return "transaction_email"
     
@@ -109,14 +124,6 @@ def classify_intent(query: str) -> str:
     
     if re.search(r'\b(chart|plot|graph|visualize|trend)\b', lower_query):
         return "chart"
-    
-    if (re.search(r'\b(web|google|latest|news|current|recent|breaking|real-time|realtime|look up|find online|internet)\b', lower_query) or
-        re.search(r'\bsearch\s+(the\s+)?web\b', lower_query) or
-        re.search(r'\bweb\s+search\b', lower_query) or
-        re.search(r'\bfrom\s+(the\s+)?web\b', lower_query) or
-        (re.search(r'\bsearch\b', lower_query) and re.search(r'\b(latest|news|online|internet)\b', lower_query)) or
-        (re.search(r'\b(latest|recent|current)\b', lower_query) and re.search(r'\bnews\b', lower_query))):
-        return "web"
     
     if re.search(r'\b(how|what|why|explain|documentation|docs|guide|tutorial)\b', lower_query):
         return "doc_rag"
@@ -366,56 +373,56 @@ async def logic_rag_retrieval(request: RAGRequest):
     }
 
 async def logic_web_search(request: WebSearchRequest):
-    # Simulation logic
-    time.sleep(0.3)
-    mock_results = [
-        {
-            "title": "Understanding Modern Web Architecture",
-            "url": "https://example.com/web-architecture",
-            "snippet": "A comprehensive guide to building scalable web applications...",
-            "relevance": 0.92,
-        },
-        {
-            "title": "Best Practices for API Design",
-            "url": "https://example.com/api-design",
-            "snippet": "Learn how to design RESTful APIs...",
-            "relevance": 0.88,
-        },
-        {
-            "title": "Database Optimization Techniques",
-            "url": "https://example.com/db-optimization",
-            "snippet": "Improve your database performance...",
-            "relevance": 0.85,
-        },
-    ]
-    results = mock_results[:request.maxResults]
+    if not SERPER_API_KEY:
+        raise HTTPException(status_code=500, detail="SERPER_API_KEY missing")
+
+    # Serper API endpoint
+    url = "https://google.serper.dev/search"
     
-    if not OPENAI_API_KEY:
+    # Build request payload
+    payload = {
+        "q": request.query,
+        "num": request.maxResults or 5
+    }
+    
+    headers = {
+        "X-API-KEY": SERPER_API_KEY,
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        
+        results = response.json()
+        organic_results = results.get("organic", [])
+        cleaned_results = []
+
+        # Clean and format results
+        for i, r in enumerate(organic_results[:request.maxResults], 1):
+            cleaned_results.append({
+                "title": r.get("title"),
+                "url": r.get("link"),
+                "snippet": r.get("snippet"),
+                "position": i
+            })
+
+        final_answer = "I found the following information based on Google search."
+
         return {
             "query": request.query,
-            "results": results,
-            "answer": f"I found {len(results)} web results.",
-            "metadata": {"resultsCount": len(results), "timestamp": time.time()}
+            "results": cleaned_results,
+            "answer": final_answer,
+            "metadata": {
+                "engine": "Serper API (Google)",
+                "resultsCount": len(cleaned_results),
+                "timestamp": time.time()
+            }
         }
-        
-    search_context = "\n\n".join([f"[{i+1}] {r['title']}\n{r['snippet']}\nSource: {r['url']}" for i, r in enumerate(results)])
-    
-    chat_completion = openai.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "Synthesize web search results into an answer."},
-            {"role": "user", "content": f"Question: {request.query}\n\nResults:\n{search_context}"}
-        ],
-        temperature=0.7
-    )
-    answer = chat_completion.choices[0].message.content
-    
-    return {
-        "query": request.query,
-        "results": results,
-        "answer": answer,
-        "metadata": {"resultsCount": len(results), "timestamp": time.time()}
-    }
+
+    except requests.exceptions.RequestException as e:
+        print("Serper API error:", e)
+        raise HTTPException(status_code=500, detail=f"Web search failed: {str(e)}")
 
 async def logic_openai_chat(request: ChatRequest):
     if not OPENAI_API_KEY:
@@ -442,7 +449,7 @@ async def logic_openai_chat(request: ChatRequest):
 
 @app.get("/")
 async def root():
-    return {"message": "Agentic RAG Python Backend is running"}
+    return {"message": "Nexa AI Backend is running", "version": "1.0", "assistant": "Nexa"}
 
 @app.post("/transaction-query")
 async def endpoint_transaction_query(request: TransactionQuery):

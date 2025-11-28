@@ -11,40 +11,6 @@ interface WebSearchRequest {
   maxResults?: number;
 }
 
-interface SearchResult {
-  title: string;
-  url: string;
-  snippet: string;
-  relevance: number;
-}
-
-async function simulateWebSearch(query: string, maxResults: number): Promise<SearchResult[]> {
-  await new Promise(resolve => setTimeout(resolve, 300));
-
-  const mockResults: SearchResult[] = [
-    {
-      title: "Understanding Modern Web Architecture",
-      url: "https://example.com/web-architecture",
-      snippet: "A comprehensive guide to building scalable web applications using microservices and cloud-native patterns...",
-      relevance: 0.92,
-    },
-    {
-      title: "Best Practices for API Design",
-      url: "https://example.com/api-design",
-      snippet: "Learn how to design RESTful APIs that are intuitive, scalable, and secure. Covers versioning, authentication...",
-      relevance: 0.88,
-    },
-    {
-      title: "Database Optimization Techniques",
-      url: "https://example.com/db-optimization",
-      snippet: "Improve your database performance with indexing strategies, query optimization, and caching mechanisms...",
-      relevance: 0.85,
-    },
-  ];
-
-  return mockResults.slice(0, maxResults);
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -65,71 +31,31 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Web Search Tool: "${query}"`);
 
-    const results = await simulateWebSearch(query, maxResults);
+    // Get the backend URL from environment (use localhost for local dev)
+    const backendUrl = Deno.env.get("BACKEND_URL") || "http://localhost:8000";
 
-    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openaiApiKey) {
-      return new Response(
-        JSON.stringify({
-          query,
-          results,
-          answer: `I found ${results.length} web results for "${query}". ${results.map(r => `${r.title}: ${r.snippet}`).join(' ')}`,
-          metadata: {
-            resultsCount: results.length,
-            timestamp: Date.now(),
-          },
-        }),
-        {
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    const searchContext = results.map((r, i) =>
-      `[${i + 1}] ${r.title}\n${r.snippet}\nSource: ${r.url}`
-    ).join('\n\n');
-
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+    // Proxy the request to the Python backend
+    const backendResponse = await fetch(`${backendUrl}/web-search-tool`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiApiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are a helpful assistant that synthesizes web search results into clear, informative answers. Use the provided search results to answer the user's question."
-          },
-          {
-            role: "user",
-            content: `Based on these web search results, answer the question: "${query}"\n\nSearch Results:\n${searchContext}`
-          }
-        ],
-        temperature: 0.7,
+        query,
+        maxResults,
       }),
     });
 
-    let answer = `I found ${results.length} web results for "${query}".`;
-    if (openaiResponse.ok) {
-      const openaiData = await openaiResponse.json();
-      answer = openaiData.choices[0].message.content;
+    if (!backendResponse.ok) {
+      const errorText = await backendResponse.text();
+      console.error("Backend web search failed:", backendResponse.status, errorText);
+      throw new Error(`Backend returned ${backendResponse.status}: ${errorText}`);
     }
 
+    const result = await backendResponse.json();
+
     return new Response(
-      JSON.stringify({
-        query,
-        results,
-        answer,
-        metadata: {
-          resultsCount: results.length,
-          timestamp: Date.now(),
-        },
-      }),
+      JSON.stringify(result),
       {
         headers: {
           ...corsHeaders,
