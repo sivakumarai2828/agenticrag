@@ -1,3 +1,5 @@
+import { getApiUrl, API_ENDPOINTS } from '../config/api';
+
 export interface Transaction {
   id: number;
   client_id: number;
@@ -48,8 +50,7 @@ export interface EmailResult {
   voiceSummary: string;
 }
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 
 export async function queryTransactions(params: {
   query: string;
@@ -60,10 +61,9 @@ export async function queryTransactions(params: {
   dateTo?: string;
   limit?: number;
 }): Promise<TransactionQueryResult> {
-  const apiUrl = `${SUPABASE_URL}/functions/v1/transaction-query`;
+  const apiUrl = getApiUrl(API_ENDPOINTS.TRANSACTION_QUERY);
 
   const headers = {
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
     'Content-Type': 'application/json',
   };
 
@@ -87,10 +87,9 @@ export async function generateTransactionChart(params: {
   dateFrom?: string;
   dateTo?: string;
 }): Promise<ChartResult> {
-  const apiUrl = `${SUPABASE_URL}/functions/v1/transaction-chart`;
+  const apiUrl = getApiUrl(API_ENDPOINTS.TRANSACTION_CHART);
 
   const headers = {
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
     'Content-Type': 'application/json',
   };
 
@@ -113,10 +112,9 @@ export async function emailTransactionReport(params: {
   transactionSummary: TransactionSummary;
   chartData?: ChartData;
 }): Promise<EmailResult> {
-  const apiUrl = `${SUPABASE_URL}/functions/v1/transaction-email`;
+  const apiUrl = getApiUrl(API_ENDPOINTS.TRANSACTION_EMAIL);
 
   const headers = {
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
     'Content-Type': 'application/json',
   };
 

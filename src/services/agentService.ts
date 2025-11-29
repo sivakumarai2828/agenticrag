@@ -1,8 +1,8 @@
 import { classifyIntent } from '../router/intentRouter';
-import { queryTransactions, generateTransactionChart, emailTransactionReport } from './transactionService';
+import { queryTransactions, generateTransactionChart } from './transactionService';
+import { getApiUrl, API_ENDPOINTS } from '../config/api';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 
 export interface AgentRequest {
   query: string;
@@ -24,6 +24,7 @@ export interface AgentResponse {
   metadata: {
     totalLatency: number;
     timestamp: number;
+    [key: string]: any;
   };
   tableData?: any;
   chartData?: any;
@@ -86,12 +87,11 @@ export async function processWithAgent(request: AgentRequest): Promise<AgentResp
     }
 
     const response = await fetch(
-      `${SUPABASE_URL}/functions/v1/agent-orchestrator`,
+      getApiUrl(API_ENDPOINTS.AGENT_ORCHESTRATOR),
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify(request),
       }

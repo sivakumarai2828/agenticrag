@@ -12,6 +12,7 @@ import { VectorResult } from './services/mockVector';
 import { WebResult } from './services/mockWeb';
 import { processWithAgent } from './services/agentService';
 import { TransactionSummary } from './services/transactionService';
+import { IntentType } from './router/intentRouter';
 
 interface TraceStep {
   name: string;
@@ -88,7 +89,7 @@ export default function SimpleApp() {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: response.content,
-        intent: response.intent,
+        intent: response.intent as IntentType,
         sources: response.sources,
         citations: response.citations,
         table: response.tableData ? formatTransactionTable(response.tableData) : undefined,
@@ -115,7 +116,7 @@ export default function SimpleApp() {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: 'Sorry, I encountered an error processing your request. Please try again.',
-        intent: 'error',
+        intent: 'doc_rag',
         sources: [],
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -182,7 +183,7 @@ export default function SimpleApp() {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: response.content,
-        intent: response.intent,
+        intent: response.intent as IntentType,
         sources: response.sources,
         citations: response.citations,
         table: response.tableData ? formatTransactionTable(response.tableData) : undefined,
@@ -221,7 +222,7 @@ export default function SimpleApp() {
     console.log('Voice assistant message with data:', text, sources, tableData, chartData);
 
     let formattedTable;
-    let intent;
+    let intent: IntentType | undefined;
 
     if (tableData) {
       const summary = tableData.summary || tableData;
@@ -232,11 +233,11 @@ export default function SimpleApp() {
     }
 
     if (chartData) {
-      intent = 'chart';
+      intent = 'transaction_chart';
     }
 
     if (sources?.includes('EMAIL')) {
-      intent = 'email';
+      intent = 'transaction_email';
     }
 
     const assistantMessage: Message = {
@@ -246,7 +247,7 @@ export default function SimpleApp() {
       sources: sources || ['OPENAI'],
       table: formattedTable,
       chart: chartData,
-      intent: intent || 'general',
+      intent: intent || 'doc_rag',
     };
 
     setMessages(prev => [...prev, assistantMessage]);
@@ -281,29 +282,27 @@ export default function SimpleApp() {
             <div>
               <h1 className="text-xl font-bold text-gray-800">Voice Agentic RAG</h1>
               <p className="text-xs text-gray-500">
-                {isVoiceConnected ? 'Voice-controlled multi-modal responses' : 'Smart routing • Multi-modal responses • Voice-enabled AI'}
+                {isVoiceConnected ? 'Nexa is listening - speak naturally' : 'Smart routing • Multi-modal responses • Voice-enabled AI'}
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setActiveTab('chat')}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
-                activeTab === 'chat'
-                  ? 'bg-violet-100 text-violet-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${activeTab === 'chat'
+                ? 'bg-violet-100 text-violet-700'
+                : 'text-gray-600 hover:bg-gray-100'
+                }`}
             >
               <MessageSquare className="w-4 h-4" />
               <span className="text-sm font-medium">Chat</span>
             </button>
             <button
               onClick={() => setActiveTab('data')}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
-                activeTab === 'data'
-                  ? 'bg-violet-100 text-violet-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${activeTab === 'data'
+                ? 'bg-violet-100 text-violet-700'
+                : 'text-gray-600 hover:bg-gray-100'
+                }`}
             >
               <Database className="w-4 h-4" />
               <span className="text-sm font-medium">Data Index</span>
@@ -319,151 +318,151 @@ export default function SimpleApp() {
       ) : (
         <>
           <VoiceControls
-        ref={voiceControlsRef}
-        onTranscript={handleVoiceTranscript}
-        onAssistantMessage={handleVoiceAssistantMessage}
-        isEnabled={voiceEnabled}
-        onToggle={toggleVoice}
-        onConnectionChange={setIsVoiceConnected}
-        onStatusChange={setVoiceStatus}
-        onListeningChange={setIsListening}
-        onSpeakingChange={setIsSpeaking}
-        onAudioLevelChange={setAudioLevel}
-        selectedVoice={selectedVoice}
-        enableVAD={enableVAD}
-      />
+            ref={voiceControlsRef}
+            onTranscript={handleVoiceTranscript}
+            onAssistantMessage={handleVoiceAssistantMessage}
+            isEnabled={voiceEnabled}
+            onToggle={toggleVoice}
+            onConnectionChange={setIsVoiceConnected}
+            onStatusChange={setVoiceStatus}
+            onListeningChange={setIsListening}
+            onSpeakingChange={setIsSpeaking}
+            onAudioLevelChange={setAudioLevel}
+            selectedVoice={selectedVoice}
+            enableVAD={enableVAD}
+          />
 
-      <div className="flex items-center justify-between px-6 py-3">
-        <Toggles
-          voiceEnabled={voiceEnabled}
-          onVoiceToggle={toggleVoice}
-          voiceStatus={voiceStatus}
-          onVoiceConnect={handleVoiceConnect}
-          isListening={isListening}
-          isSpeaking={isSpeaking}
-          audioLevel={audioLevel}
-          selectedVoice={selectedVoice}
-          onVoiceChange={setSelectedVoice}
-          enableVAD={enableVAD}
-          onVADChange={setEnableVAD}
-        />
-        <button
-          onClick={() => setShowUploadModal(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg hover:from-violet-700 hover:to-fuchsia-700 transition-all shadow-sm"
-        >
-          <Upload className="w-4 h-4" />
-          <span className="text-sm font-medium">Upload Document</span>
-        </button>
-      </div>
+          <div className="flex items-center justify-between px-6 py-3">
+            <Toggles
+              voiceEnabled={voiceEnabled}
+              onVoiceToggle={toggleVoice}
+              voiceStatus={voiceStatus}
+              onVoiceConnect={handleVoiceConnect}
+              isListening={isListening}
+              isSpeaking={isSpeaking}
+              audioLevel={audioLevel}
+              selectedVoice={selectedVoice}
+              onVoiceChange={setSelectedVoice}
+              enableVAD={enableVAD}
+              onVADChange={setEnableVAD}
+            />
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg hover:from-violet-700 hover:to-fuchsia-700 transition-all shadow-sm"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="text-sm font-medium">Upload Document</span>
+            </button>
+          </div>
 
-      {metrics.queriesCount > 0 && (
-        <InsightsBar
-          totalLatency={metrics.totalLatency}
-          sourcesUsed={metrics.sourcesUsed}
-          citationsCount={metrics.citationsCount}
-          queriesCount={metrics.queriesCount}
-        />
-      )}
+          {metrics.queriesCount > 0 && (
+            <InsightsBar
+              totalLatency={metrics.totalLatency}
+              sourcesUsed={metrics.sourcesUsed}
+              citationsCount={metrics.citationsCount}
+              queriesCount={metrics.queriesCount}
+            />
+          )}
 
-      {messages.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-2xl px-6">
-            <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Zap className="w-10 h-10 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-3">
-              Ask anything, get structured answers
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Intelligent routing to the right data source with multi-modal rendering
-            </p>
-            {isVoiceConnected ? (
-              <div className="bg-gradient-to-r from-violet-50 to-fuchsia-50 border border-violet-200 rounded-xl p-8 max-w-lg mx-auto">
-                <p className="text-lg font-semibold text-gray-800 mb-2">🎤 Voice Mode Active</p>
-                <p className="text-gray-600">Speak naturally to ask questions, query data, or request charts</p>
+          {messages.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center max-w-2xl px-6">
+                <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Zap className="w-10 h-10 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-3">
+                  Voice Agentic RAG Agent
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  Powered by Nexa - your AI voice assistant for intelligent routing and multi-modal responses
+                </p>
+                {isVoiceConnected ? (
+                  <div className="bg-gradient-to-r from-violet-50 to-fuchsia-50 border border-violet-200 rounded-xl p-8 max-w-lg mx-auto">
+                    <p className="text-lg font-semibold text-gray-800 mb-2">🎤 Nexa is Listening</p>
+                    <p className="text-gray-600">Speak naturally to ask questions, query data, or request charts</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3 text-left">
+                    <button
+                      onClick={() => setInput('Show transactions for client 501')}
+                      className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
+                    >
+                      <p className="text-sm font-medium text-gray-800">Transaction analysis</p>
+                      <p className="text-xs text-gray-500 mt-1">→ Database query</p>
+                    </button>
+                    <button
+                      onClick={() => setInput('Create a pie chart for client 501')}
+                      className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
+                    >
+                      <p className="text-sm font-medium text-gray-800">Generate chart</p>
+                      <p className="text-xs text-gray-500 mt-1">→ Visualization</p>
+                    </button>
+                    <button
+                      onClick={() => setInput('What is RAG and how does it work?')}
+                      className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
+                    >
+                      <p className="text-sm font-medium text-gray-800">Product documentation</p>
+                      <p className="text-xs text-gray-500 mt-1">→ Vector search</p>
+                    </button>
+                    <button
+                      onClick={() => setInput('Search the web for latest AI news')}
+                      className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
+                    >
+                      <p className="text-sm font-medium text-gray-800">Web search</p>
+                      <p className="text-xs text-gray-500 mt-1">→ Real-time data</p>
+                    </button>
+                    <button
+                      onClick={() => setInput('Send transaction report for client 501')}
+                      className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
+                    >
+                      <p className="text-sm font-medium text-gray-800">Email report</p>
+                      <p className="text-xs text-gray-500 mt-1">→ Email delivery</p>
+                    </button>
+                    <button
+                      onClick={() => setInput('What documents are available in the system?')}
+                      className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
+                    >
+                      <p className="text-sm font-medium text-gray-800">Document index</p>
+                      <p className="text-xs text-gray-500 mt-1">→ Knowledge base</p>
+                    </button>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 text-left">
-              <button
-                onClick={() => setInput('Show transactions for client 501')}
-                className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
-              >
-                <p className="text-sm font-medium text-gray-800">Transaction analysis</p>
-                <p className="text-xs text-gray-500 mt-1">→ Database query</p>
-              </button>
-              <button
-                onClick={() => setInput('Create a pie chart for client 501')}
-                className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
-              >
-                <p className="text-sm font-medium text-gray-800">Generate chart</p>
-                <p className="text-xs text-gray-500 mt-1">→ Visualization</p>
-              </button>
-              <button
-                onClick={() => setInput('What is RAG and how does it work?')}
-                className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
-              >
-                <p className="text-sm font-medium text-gray-800">Product documentation</p>
-                <p className="text-xs text-gray-500 mt-1">→ Vector search</p>
-              </button>
-              <button
-                onClick={() => setInput('Search the web for latest AI news')}
-                className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
-              >
-                <p className="text-sm font-medium text-gray-800">Web search</p>
-                <p className="text-xs text-gray-500 mt-1">→ Real-time data</p>
-              </button>
-              <button
-                onClick={() => setInput('Send transaction report for client 501')}
-                className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
-              >
-                <p className="text-sm font-medium text-gray-800">Email report</p>
-                <p className="text-xs text-gray-500 mt-1">→ Email delivery</p>
-              </button>
-              <button
-                onClick={() => setInput('What documents are available in the system?')}
-                className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
-              >
-                <p className="text-sm font-medium text-gray-800">Document index</p>
-                <p className="text-xs text-gray-500 mt-1">→ Knowledge base</p>
-              </button>
             </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <ChatThread messages={messages} onViewTrace={handleViewTrace} isLoading={isLoading} />
-      )}
+          ) : (
+            <ChatThread messages={messages} onViewTrace={handleViewTrace} isLoading={isLoading} />
+          )}
 
-      {!isVoiceConnected && (
-        <div className="border-t border-gray-200 bg-white px-6 py-4">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex items-end space-x-3">
-              <textarea
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask about data, docs, APIs, or request charts..."
-                rows={1}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
-                style={{ minHeight: '48px', maxHeight: '120px' }}
-              />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || isLoading}
-                className="px-5 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg hover:from-violet-700 hover:to-fuchsia-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-              >
-                <Send size={18} />
-                <span className="font-medium">Send</span>
-              </button>
-          </div>
-          <div className="flex items-center justify-center mt-2">
-            <p className="text-xs text-gray-500">
-              Enter to send • Shift+Enter for new line
-            </p>
-          </div>
-        </div>
-        </div>
-      )}
+          {!isVoiceConnected && (
+            <div className="border-t border-gray-200 bg-white px-6 py-4">
+              <div className="max-w-4xl mx-auto">
+                <div className="flex items-end space-x-3">
+                  <textarea
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask about data, docs, APIs, or request charts..."
+                    rows={1}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
+                    style={{ minHeight: '48px', maxHeight: '120px' }}
+                  />
+                  <button
+                    onClick={handleSend}
+                    disabled={!input.trim() || isLoading}
+                    className="px-5 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg hover:from-violet-700 hover:to-fuchsia-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  >
+                    <Send size={18} />
+                    <span className="font-medium">Send</span>
+                  </button>
+                </div>
+                <div className="flex items-center justify-center mt-2">
+                  <p className="text-xs text-gray-500">
+                    Enter to send • Shift+Enter for new line
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 

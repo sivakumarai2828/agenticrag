@@ -29,7 +29,7 @@ export default function AnswerCard({
   chart,
   json,
 }: AnswerCardProps) {
-  const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  const [sourcesExpanded, setSourcesExpanded] = useState(true);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
