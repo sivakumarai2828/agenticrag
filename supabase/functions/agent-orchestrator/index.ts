@@ -32,6 +32,35 @@ type Intent =
   | "transaction_email"
   | "general";
 
+const WORD_TO_NUMBER: Record<string, string> = {
+  'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
+  'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
+  'ten': '10', 'eleven': '11', 'twelve': '12', 'thirteen': '13', 'fourteen': '14',
+  'fifteen': '15', 'sixteen': '16', 'seventeen': '17', 'eighteen': '18', 'nineteen': '19',
+  'twenty': '20', 'thirty': '30', 'forty': '40', 'fifty': '50'
+};
+
+function convertWordToNumber(word: string): string {
+  const lower = word.toLowerCase();
+  return WORD_TO_NUMBER[lower] || word;
+}
+
+function extractClientId(query: string): string | null {
+  const lowerQuery = query.toLowerCase();
+
+  // Try to match "client" followed by number or word
+  const clientMatch = lowerQuery.match(/client\s*([a-z0-9_-]+)/i);
+  if (clientMatch) {
+    let rawId = clientMatch[1];
+    // Convert word to number if needed
+    rawId = convertWordToNumber(rawId);
+    // If it's a plain number, prefix with 'client'
+    return /^\d+$/.test(rawId) ? `client${rawId}` : rawId;
+  }
+
+  return null;
+}
+
 function classifyIntent(query: string): Intent {
   const lowerQuery = query.toLowerCase();
 
@@ -145,10 +174,8 @@ Deno.serve(async (req: Request) => {
         const emailStart = Date.now();
 
         const emailMatch = query.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/);
-        const clientMatch = query.match(/client\s*(\d+)/i) || query.match(/(\d{3,})/);
-
         const emailTo = emailMatch ? emailMatch[0] : metadata?.email || "user@example.com";
-        const clientId = clientMatch ? parseInt(clientMatch[1]) : metadata?.lastClientId;
+        const clientId = extractClientId(query) || metadata?.lastClientId;
 
         console.log('Email request - clientId:', clientId, 'emailTo:', emailTo);
 
@@ -208,8 +235,7 @@ Deno.serve(async (req: Request) => {
         steps.push({ name: "Transaction Query", latency: 0, timestamp: Date.now() });
         const queryStart = Date.now();
 
-        const clientMatch = query.match(/client\s*(\d+)/i) || query.match(/(\d{3,})/);
-        const clientId = clientMatch ? parseInt(clientMatch[1]) : null;
+        const clientId = extractClientId(query);
 
         const queryResponse = await fetch(
           `${supabaseUrl}/functions/v1/transaction-query`,
@@ -238,8 +264,7 @@ Deno.serve(async (req: Request) => {
         steps.push({ name: "Transaction Chart", latency: 0, timestamp: Date.now() });
         const chartStart = Date.now();
 
-        const clientMatch = query.match(/client\s*(\d+)/i) || query.match(/(\d{3,})/);
-        const clientId = clientMatch ? parseInt(clientMatch[1]) : null;
+        const clientId = extractClientId(query);
 
         const chartResponse = await fetch(
           `${supabaseUrl}/functions/v1/transaction-chart`,
