@@ -117,18 +117,20 @@ def classify_intent(query: str) -> str:
     if re.search(r'\b(email|send|mail)\b', lower_query) and (re.search(r'\b(report|transaction|above)\b', lower_query) or '@' in lower_query):
         return "transaction_email"
     
+    # Check for transaction/client queries (prioritize this check)
     if re.search(r'\b(transaction|client|purchase|refund|payment)\b', lower_query):
         if re.search(r'\b(chart|plot|graph|visualize|trend)\b', lower_query):
             return "transaction_chart"
         return "transaction_query"
-    
+
     if re.search(r'\b(chart|plot|graph|visualize|trend)\b', lower_query):
         return "chart"
-    
+
     if re.search(r'\b(how|what|why|explain|documentation|docs|guide|tutorial)\b', lower_query):
         return "doc_rag"
-    
-    if re.search(r'\b(select|query|show|get|retrieve|find|search|top|merchants|revenue|transactions)\b', lower_query):
+
+    # SQL query detection (but skip if it's about transactions/clients which is handled above)
+    if re.search(r'\b(select|query)\\b', lower_query) and not re.search(r'\b(transaction|client)\b', lower_query):
         return "sql"
     
     if re.search(r'\b(report|summary|analysis|breakdown)\b', lower_query):
@@ -502,7 +504,12 @@ async def endpoint_agent_orchestrator(request: AgentRequest):
             client_match = re.search(r'client\s*([a-zA-Z0-9_-]+)', request.query, re.IGNORECASE)
 
             email_to = email_match.group(0) if email_match else (request.metadata.get("email") or "user@example.com")
-            client_id = client_match.group(1) if client_match else request.metadata.get("lastClientId")
+            if client_match:
+                raw_id = client_match.group(1)
+                # Normalize: if it's a plain number, prefix with 'client'
+                client_id = f"client{raw_id}" if raw_id.isdigit() else raw_id
+            else:
+                client_id = request.metadata.get("lastClientId")
             
             # 1. Get Data
             query_result = await logic_transaction_query(TransactionQuery(query=f"transactions for client {client_id}", clientId=client_id))
@@ -524,8 +531,13 @@ async def endpoint_agent_orchestrator(request: AgentRequest):
             step_start = time.time()
 
             client_match = re.search(r'client\s*([a-zA-Z0-9_-]+)', request.query, re.IGNORECASE)
-            client_id = client_match.group(1) if client_match else None
-            
+            if client_match:
+                raw_id = client_match.group(1)
+                # Normalize: if it's a plain number, prefix with 'client'
+                client_id = f"client{raw_id}" if raw_id.isdigit() else raw_id
+            else:
+                client_id = None
+
             result = await logic_transaction_query(TransactionQuery(query=request.query, clientId=client_id))
             
             response_data["content"] = result["voiceSummary"]
@@ -539,8 +551,13 @@ async def endpoint_agent_orchestrator(request: AgentRequest):
             step_start = time.time()
 
             client_match = re.search(r'client\s*([a-zA-Z0-9_-]+)', request.query, re.IGNORECASE)
-            client_id = client_match.group(1) if client_match else None
-            
+            if client_match:
+                raw_id = client_match.group(1)
+                # Normalize: if it's a plain number, prefix with 'client'
+                client_id = f"client{raw_id}" if raw_id.isdigit() else raw_id
+            else:
+                client_id = None
+
             result = await logic_transaction_chart(ChartRequest(query=request.query, clientId=client_id))
             
             response_data["content"] = result["voiceSummary"]
