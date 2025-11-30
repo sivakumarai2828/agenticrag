@@ -8,6 +8,19 @@ export interface IntentResult {
   params?: any;
 }
 
+const WORD_TO_NUMBER: Record<string, string> = {
+  'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
+  'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
+  'ten': '10', 'eleven': '11', 'twelve': '12', 'thirteen': '13', 'fourteen': '14',
+  'fifteen': '15', 'sixteen': '16', 'seventeen': '17', 'eighteen': '18', 'nineteen': '19',
+  'twenty': '20', 'thirty': '30', 'forty': '40', 'fifty': '50'
+};
+
+function convertWordToNumber(word: string): string {
+  const lower = word.toLowerCase();
+  return WORD_TO_NUMBER[lower] || word;
+}
+
 const SQL_KEYWORDS = ['select', 'top', 'average', 'avg', 'sum', 'count', 'merchants', 'transactions', 'revenue', 'group by', 'order by'];
 const CHART_KEYWORDS = ['chart', 'plot', 'graph', 'visualize', 'show trends', 'time series', '7 days', '30 days', 'last week', 'last month'];
 const API_KEYWORDS = ['api', 'downstream', 'health', 'errors', '5xx', '4xx', 'status', 'endpoint', 'service'];
@@ -38,7 +51,9 @@ export function classifyIntent(query: string): IntentResult {
 
     const clientMatch = lowerQuery.match(/client\s*([a-zA-Z0-9_-]+)/);
     if (clientMatch) {
-      const rawId = clientMatch[1];
+      let rawId = clientMatch[1];
+      // Convert word numbers to digits (e.g., "one" -> "1")
+      rawId = convertWordToNumber(rawId);
       // Normalize: if it's a plain number, prefix with 'client'
       params.clientId = /^\d+$/.test(rawId) ? `client${rawId}` : rawId;
     }
@@ -57,7 +72,9 @@ export function classifyIntent(query: string): IntentResult {
 
     const clientMatch = lowerQuery.match(/client\s*([a-zA-Z0-9_-]+)/);
     if (clientMatch) {
-      const rawId = clientMatch[1];
+      let rawId = clientMatch[1];
+      // Convert word numbers to digits (e.g., "one" -> "1")
+      rawId = convertWordToNumber(rawId);
       // Normalize: if it's a plain number, prefix with 'client'
       params.clientId = /^\d+$/.test(rawId) ? `client${rawId}` : rawId;
     }
