@@ -33,6 +33,7 @@ Deno.serve(async (req: Request) => {
     const { query, clientId, type, status, dateFrom, dateTo, limit = 100 } = requestData;
 
     console.log('Transaction query received:', requestData);
+    console.log('📋 Extracted clientId:', clientId, 'Type:', typeof clientId);
 
     let dbQuery = supabase
       .from('transactions')

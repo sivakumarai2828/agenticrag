@@ -38,10 +38,12 @@ export async function processWithAgent(request: AgentRequest): Promise<AgentResp
     console.log('Intent classification:', intentResult);
 
     if (intentResult.intent === 'transaction_query') {
-      const result = await queryTransactions({
+      const queryParams = {
         query: request.query,
         ...intentResult.params,
-      });
+      };
+      console.log('🔍 Calling queryTransactions with params:', queryParams);
+      const result = await queryTransactions(queryParams);
 
       return {
         content: result.voiceSummary,
