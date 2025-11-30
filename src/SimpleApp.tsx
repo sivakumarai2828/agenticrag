@@ -50,7 +50,7 @@ export default function SimpleApp() {
   const [selectedVoice, setSelectedVoice] = useState('alloy');
   const [enableVAD, setEnableVAD] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [lastClientId, setLastClientId] = useState<number | null>(null);
+  const [lastClientId, setLastClientId] = useState<string | null>(null);
   const voiceControlsRef = React.useRef<any>(null);
 
   const [metrics, setMetrics] = useState({
@@ -384,14 +384,14 @@ export default function SimpleApp() {
                 ) : (
                   <div className="grid grid-cols-2 gap-3 text-left">
                     <button
-                      onClick={() => setInput('Show transactions for client 501')}
+                      onClick={() => setInput('Show transactions for client 1')}
                       className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
                     >
                       <p className="text-sm font-medium text-gray-800">Transaction analysis</p>
                       <p className="text-xs text-gray-500 mt-1">→ Database query</p>
                     </button>
                     <button
-                      onClick={() => setInput('Create a pie chart for client 501')}
+                      onClick={() => setInput('Create a pie chart for client 1')}
                       className="p-4 bg-white rounded-lg border border-gray-200 hover:border-violet-300 transition-colors text-left"
                     >
                       <p className="text-sm font-medium text-gray-800">Generate chart</p>

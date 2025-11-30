@@ -36,13 +36,11 @@ export function classifyIntent(query: string): IntentResult {
       params.email = emailMatch[0];
     }
 
-    const clientMatch = lowerQuery.match(/client\s*(\d+)/);
-    const ipLikeMatch = lowerQuery.match(/client\s*(\d+)\.(\d+)\.(\d+)\.(\d+)/);
-
-    if (ipLikeMatch) {
-      params.clientId = parseInt(ipLikeMatch[1] + ipLikeMatch[2] + ipLikeMatch[3] + ipLikeMatch[4]);
-    } else if (clientMatch) {
-      params.clientId = parseInt(clientMatch[1]);
+    const clientMatch = lowerQuery.match(/client\s*([a-zA-Z0-9_-]+)/);
+    if (clientMatch) {
+      const rawId = clientMatch[1];
+      // Normalize: if it's a plain number, prefix with 'client'
+      params.clientId = /^\d+$/.test(rawId) ? `client${rawId}` : rawId;
     }
 
     return {
@@ -57,13 +55,11 @@ export function classifyIntent(query: string): IntentResult {
   if (containsKeywords(lowerQuery, TRANSACTION_KEYWORDS)) {
     const params: any = {};
 
-    const clientMatch = lowerQuery.match(/client\s*(\d+)/);
-    const ipLikeMatch = lowerQuery.match(/client\s*(\d+)\.(\d+)\.(\d+)\.(\d+)/);
-
-    if (ipLikeMatch) {
-      params.clientId = parseInt(ipLikeMatch[1] + ipLikeMatch[2] + ipLikeMatch[3] + ipLikeMatch[4]);
-    } else if (clientMatch) {
-      params.clientId = parseInt(clientMatch[1]);
+    const clientMatch = lowerQuery.match(/client\s*([a-zA-Z0-9_-]+)/);
+    if (clientMatch) {
+      const rawId = clientMatch[1];
+      // Normalize: if it's a plain number, prefix with 'client'
+      params.clientId = /^\d+$/.test(rawId) ? `client${rawId}` : rawId;
     }
 
     if (lowerQuery.includes('purchase')) {
