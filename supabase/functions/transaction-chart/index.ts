@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface ChartRequest {
   query: string;
-  clientId?: number;
+  clientId?: string;
   chartType?: 'bar' | 'line' | 'pie';
   dateFrom?: string;
   dateTo?: string;

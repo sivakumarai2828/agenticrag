@@ -2,7 +2,7 @@ import { getApiUrl, API_ENDPOINTS } from '../config/api';
 
 export interface Transaction {
   id: number;
-  client_id: number;
+  client_id: string;
   type: string;
   tran_amt: number;
   tran_status: string;
@@ -54,7 +54,7 @@ export interface EmailResult {
 
 export async function queryTransactions(params: {
   query: string;
-  clientId?: number;
+  clientId?: string;
   type?: string;
   status?: string;
   dateFrom?: string;
@@ -82,7 +82,7 @@ export async function queryTransactions(params: {
 
 export async function generateTransactionChart(params: {
   query: string;
-  clientId?: number;
+  clientId?: string;
   chartType?: 'bar' | 'line' | 'pie';
   dateFrom?: string;
   dateTo?: string;

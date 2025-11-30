@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface TransactionQuery {
   query: string;
-  clientId?: number;
+  clientId?: string;
   type?: string;
   status?: string;
   dateFrom?: string;
