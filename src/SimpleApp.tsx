@@ -317,7 +317,8 @@ export default function SimpleApp() {
         </div>
       ) : (
         <>
-          <VoiceControls
+          {/* Temporarily disabled VoiceControls to debug refresh issue */}
+          {false && <VoiceControls
             ref={voiceControlsRef}
             onTranscript={handleVoiceTranscript}
             onAssistantMessage={handleVoiceAssistantMessage}
@@ -330,7 +331,7 @@ export default function SimpleApp() {
             onAudioLevelChange={setAudioLevel}
             selectedVoice={selectedVoice}
             enableVAD={enableVAD}
-          />
+          />}
 
           <div className="flex items-center justify-between px-6 py-3">
             <Toggles
