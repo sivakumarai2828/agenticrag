@@ -1,4 +1,4 @@
-import React, { useState, KeyboardEvent } from 'react';
+import React, { useState, useCallback, KeyboardEvent } from 'react';
 import { Send, Zap, Upload, X, Database, MessageSquare } from 'lucide-react';
 import Toggles from './components/Toggles';
 import QuickActions from './components/QuickActions';
@@ -140,7 +140,7 @@ export default function SimpleApp() {
     setInput(query);
   };
 
-  const handleVoiceTranscript = async (text: string, skipAgentProcessing: boolean = false) => {
+  const handleVoiceTranscript = useCallback(async (text: string, skipAgentProcessing: boolean = false) => {
     setInput(text);
 
     if (!text.trim() || isLoading) return;
@@ -215,10 +215,10 @@ export default function SimpleApp() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [voiceEnabled, isVoiceConnected, isLoading, lastClientId]);
 
 
-  const handleVoiceAssistantMessage = (text: string, sources?: any[], tableData?: any, chartData?: any) => {
+  const handleVoiceAssistantMessage = useCallback((text: string, sources?: any[], tableData?: any, chartData?: any) => {
     console.log('Voice assistant message with data:', text, sources, tableData, chartData);
 
     let formattedTable;
@@ -251,9 +251,9 @@ export default function SimpleApp() {
     };
 
     setMessages(prev => [...prev, assistantMessage]);
-  };
+  }, []);
 
-  const toggleVoice = () => {
+  const toggleVoice = useCallback(() => {
     const newVoiceEnabled = !voiceEnabled;
     setVoiceEnabled(newVoiceEnabled);
     if (!newVoiceEnabled) {
@@ -263,7 +263,7 @@ export default function SimpleApp() {
       setIsSpeaking(false);
       setAudioLevel(0);
     }
-  };
+  }, [voiceEnabled]);
 
   const handleVoiceConnect = () => {
     if (voiceControlsRef.current?.connectToOpenAI) {
