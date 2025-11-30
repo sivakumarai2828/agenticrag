@@ -48,7 +48,7 @@ else:
 
 class TransactionQuery(BaseModel):
     query: str
-    clientId: Optional[int] = None
+    clientId: Optional[str] = None
     type: Optional[str] = None
     status: Optional[str] = None
     dateFrom: Optional[str] = None
@@ -57,7 +57,7 @@ class TransactionQuery(BaseModel):
 
 class ChartRequest(BaseModel):
     query: Optional[str] = ""
-    clientId: Optional[int] = None
+    clientId: Optional[str] = None
     chartType: Optional[str] = 'bar'
     dateFrom: Optional[str] = None
     dateTo: Optional[str] = None
@@ -499,10 +499,10 @@ async def endpoint_agent_orchestrator(request: AgentRequest):
             step_start = time.time()
             
             email_match = re.search(r'\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b', request.query)
-            client_match = re.search(r'client\s*(\d+)', request.query, re.IGNORECASE) or re.search(r'(\d{3,})', request.query)
-            
+            client_match = re.search(r'client\s*([a-zA-Z0-9_-]+)', request.query, re.IGNORECASE)
+
             email_to = email_match.group(0) if email_match else (request.metadata.get("email") or "user@example.com")
-            client_id = int(client_match.group(1)) if client_match else request.metadata.get("lastClientId")
+            client_id = client_match.group(1) if client_match else request.metadata.get("lastClientId")
             
             # 1. Get Data
             query_result = await logic_transaction_query(TransactionQuery(query=f"transactions for client {client_id}", clientId=client_id))
@@ -522,9 +522,9 @@ async def endpoint_agent_orchestrator(request: AgentRequest):
         elif intent == "transaction_query":
             steps.append({"name": "Transaction Query", "latency": 0, "timestamp": time.time() * 1000})
             step_start = time.time()
-            
-            client_match = re.search(r'client\s*(\d+)', request.query, re.IGNORECASE) or re.search(r'(\d{3,})', request.query)
-            client_id = int(client_match.group(1)) if client_match else None
+
+            client_match = re.search(r'client\s*([a-zA-Z0-9_-]+)', request.query, re.IGNORECASE)
+            client_id = client_match.group(1) if client_match else None
             
             result = await logic_transaction_query(TransactionQuery(query=request.query, clientId=client_id))
             
@@ -537,9 +537,9 @@ async def endpoint_agent_orchestrator(request: AgentRequest):
         elif intent == "transaction_chart":
             steps.append({"name": "Transaction Chart", "latency": 0, "timestamp": time.time() * 1000})
             step_start = time.time()
-            
-            client_match = re.search(r'client\s*(\d+)', request.query, re.IGNORECASE) or re.search(r'(\d{3,})', request.query)
-            client_id = int(client_match.group(1)) if client_match else None
+
+            client_match = re.search(r'client\s*([a-zA-Z0-9_-]+)', request.query, re.IGNORECASE)
+            client_id = client_match.group(1) if client_match else None
             
             result = await logic_transaction_chart(ChartRequest(query=request.query, clientId=client_id))
             
