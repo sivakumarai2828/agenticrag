@@ -117,6 +117,19 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
           streams: event.streams.length
         });
 
+        // Check if the stream has actual audio data
+        const stream = event.streams[0];
+        const audioTracks = stream.getAudioTracks();
+        console.log('🎵 Audio tracks in stream:', audioTracks.length);
+        audioTracks.forEach((track, idx) => {
+          console.log(`  Track ${idx}:`, {
+            label: track.label,
+            enabled: track.enabled,
+            muted: track.muted,
+            readyState: track.readyState
+          });
+        });
+
         // Create or reuse audio element in DOM (helps with autoplay policies)
         let audioElement = document.getElementById('openai-voice-audio') as HTMLAudioElement;
         if (!audioElement) {
@@ -127,6 +140,8 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
           console.log('📻 Created audio element in DOM');
         }
 
+        // CRITICAL: Ensure audio is NOT muted
+        audioElement.muted = false;
         audioElement.autoplay = true;
         audioElement.volume = 1.0; // Ensure volume is at maximum
         audioElement.srcObject = event.streams[0];
@@ -165,10 +180,24 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
         // Attempt to play immediately
         audioElement.play().then(() => {
           console.log('✅ Audio play() succeeded');
+          console.log('🔊 Audio state after play:', {
+            paused: audioElement.paused,
+            muted: audioElement.muted,
+            volume: audioElement.volume,
+            readyState: audioElement.readyState,
+            networkState: audioElement.networkState
+          });
         }).catch(err => {
           console.error('❌ Failed to auto-play audio:', err);
           console.log('💡 User interaction may be required to enable audio playback');
           console.log('💡 Try clicking anywhere on the page and reconnecting voice');
+
+          // Try to enable audio on next user interaction
+          const enableAudio = () => {
+            audioElement.play().catch(console.error);
+            document.removeEventListener('click', enableAudio);
+          };
+          document.addEventListener('click', enableAudio, { once: true });
         });
       };
 
