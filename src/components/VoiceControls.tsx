@@ -58,19 +58,19 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
 
   useEffect(() => {
     onStatusChange?.(status);
-  }, [status]);
+  }, [status, onStatusChange]);
 
   useEffect(() => {
     onListeningChange?.(isListening);
-  }, [isListening]);
+  }, [isListening, onListeningChange]);
 
   useEffect(() => {
     onSpeakingChange?.(isSpeaking);
-  }, [isSpeaking]);
+  }, [isSpeaking, onSpeakingChange]);
 
   useEffect(() => {
     onAudioLevelChange?.(audioLevel);
-  }, [audioLevel]);
+  }, [audioLevel, onAudioLevelChange]);
 
   useEffect(() => {
     return () => {
