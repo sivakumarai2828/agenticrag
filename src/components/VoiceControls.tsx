@@ -135,6 +135,8 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
         if (!audioElement) {
           audioElement = document.createElement('audio');
           audioElement.id = 'openai-voice-audio';
+          audioElement.setAttribute('playsinline', 'true'); // Important for mobile
+          audioElement.setAttribute('webkit-playsinline', 'true'); // iOS compatibility
           audioElement.style.display = 'none'; // Hidden but in DOM
           document.body.appendChild(audioElement);
           console.log('📻 Created audio element in DOM');
@@ -144,8 +146,15 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
         audioElement.muted = false;
         audioElement.autoplay = true;
         audioElement.volume = 1.0; // Ensure volume is at maximum
+        audioElement.defaultMuted = false; // Ensure default is not muted
         audioElement.srcObject = event.streams[0];
         audioElementRef.current = audioElement;
+
+        console.log('🔊 System volume check:', {
+          systemVolume: navigator.mediaDevices ? 'available' : 'unavailable',
+          audioElementVolume: audioElement.volume,
+          audioElementMuted: audioElement.muted
+        });
 
         console.log('🎚️ Audio element configured:', {
           autoplay: audioElement.autoplay,
@@ -177,6 +186,12 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
           console.log('📝 Audio metadata loaded');
         };
 
+        // Resume AudioContext if suspended (required by browsers)
+        if (audioContextRef.current?.state === 'suspended') {
+          console.log('🔓 Resuming suspended AudioContext');
+          audioContextRef.current.resume();
+        }
+
         // Attempt to play immediately
         audioElement.play().then(() => {
           console.log('✅ Audio play() succeeded');
@@ -185,7 +200,9 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
             muted: audioElement.muted,
             volume: audioElement.volume,
             readyState: audioElement.readyState,
-            networkState: audioElement.networkState
+            networkState: audioElement.networkState,
+            currentTime: audioElement.currentTime,
+            duration: audioElement.duration
           });
         }).catch(err => {
           console.error('❌ Failed to auto-play audio:', err);
@@ -194,6 +211,9 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
 
           // Try to enable audio on next user interaction
           const enableAudio = () => {
+            if (audioContextRef.current?.state === 'suspended') {
+              audioContextRef.current.resume();
+            }
             audioElement.play().catch(console.error);
             document.removeEventListener('click', enableAudio);
           };
@@ -247,6 +267,13 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
 
       const audioContext = new AudioContext({ sampleRate: 24000 });
       audioContextRef.current = audioContext;
+
+      // Resume AudioContext if it's suspended
+      if (audioContext.state === 'suspended') {
+        console.log('🔓 Resuming AudioContext for microphone input');
+        await audioContext.resume();
+      }
+      console.log('🎤 AudioContext state:', audioContext.state);
 
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
