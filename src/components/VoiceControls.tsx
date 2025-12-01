@@ -44,6 +44,7 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
   const responseSourcesRef = useRef<any[]>([]);
   const voiceSessionActiveRef = useRef<boolean>(false);
   const pendingMessageRef = useRef<{ text: string; sources?: any[]; tableData?: any; chartData?: any } | null>(null);
+  const functionResultDataRef = useRef<{ tableData?: any; chartData?: any } | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const initialResponseCancelledRef = useRef<boolean>(false);
   const userHasSpokenRef = useRef<boolean>(false);
@@ -552,13 +553,24 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
               // Queue text message to display after audio finishes
               pendingMessageRef.current = {
                 text: assistantResponseRef.current,
-                sources: ['OPENAI'],
+                sources: responseSourcesRef.current.length > 0 ? responseSourcesRef.current : ['OPENAI'],
+                tableData: functionResultDataRef.current?.tableData,
+                chartData: functionResultDataRef.current?.chartData,
+              };
+            } else {
+              // Function call response - attach data to OpenAI's narrative
+              pendingMessageRef.current = {
+                text: assistantResponseRef.current,
+                sources: responseSourcesRef.current.length > 0 ? responseSourcesRef.current : ['DB'],
+                tableData: functionResultDataRef.current?.tableData,
+                chartData: functionResultDataRef.current?.chartData,
               };
             }
           }
 
           assistantResponseRef.current = '';
           responseSourcesRef.current = [];
+          functionResultDataRef.current = null;
         }
 
         // Fallback: If there's a pending message, display it after a delay
@@ -628,10 +640,10 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
           result = await response.json();
 
           if (result.success && result.summary) {
-            // Queue message to display after audio finishes
-            pendingMessageRef.current = {
-              text: result.voiceSummary,
-              sources: ['DB'],
+            // Store table data to attach to OpenAI's response later
+            // Don't display the DB summary separately - OpenAI will narrate it
+            responseSourcesRef.current = ['DB'];
+            functionResultDataRef.current = {
               tableData: result.summary,
             };
           }
@@ -673,10 +685,9 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
           result = await response.json();
 
           if (result.success && result.chartData) {
-            // Queue message to display after audio finishes
-            pendingMessageRef.current = {
-              text: result.voiceSummary,
-              sources: ['DB'],
+            // Store chart data to attach to OpenAI's response later
+            responseSourcesRef.current = ['DB'];
+            functionResultDataRef.current = {
               chartData: result.chartData,
             };
           }
