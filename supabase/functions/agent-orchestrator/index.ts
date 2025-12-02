@@ -54,7 +54,12 @@ function extractClientId(query: string): string | null {
     let rawId = clientMatch[1];
     // Convert word to number if needed
     rawId = convertWordToNumber(rawId);
-    // Return the raw ID as-is (supports both numeric like "5001" and text like "client1")
+
+    // Handle short numeric IDs (001, 002, etc.) by padding to 4 digits
+    if (/^\d{1,3}$/.test(rawId)) {
+      rawId = '5' + rawId.padStart(3, '0');
+    }
+
     return rawId;
   }
 
@@ -146,7 +151,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    console.log(`Agent Orchestrator: "${query}"`);
+    console.log(`Agent Orchestrator: \"${query}\"`);
 
     const steps: TraceStep[] = [];
     const startTime = Date.now();
