@@ -54,8 +54,8 @@ function extractClientId(query: string): string | null {
     let rawId = clientMatch[1];
     // Convert word to number if needed
     rawId = convertWordToNumber(rawId);
-    // If it's a plain number, prefix with 'client'
-    return /^\d+$/.test(rawId) ? `client${rawId}` : rawId;
+    // Return the raw ID as-is (supports both numeric like "5001" and text like "client1")
+    return rawId;
   }
 
   return null;
