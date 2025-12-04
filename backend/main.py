@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import openai
 import requests
+from serpapi import GoogleSearch
 
 # Load environment variables
 env_path = Path(__file__).parent.parent / '.env'
@@ -34,6 +35,7 @@ SUPABASE_KEY = os.environ.get("VITE_SUPABASE_ANON_KEY")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
+SERPAPI_API_KEY = os.environ.get("SERPAPI_API_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("Warning: Supabase credentials missing.")
@@ -373,8 +375,50 @@ async def logic_rag_retrieval(request: RAGRequest):
     }
 
 async def logic_web_search(request: WebSearchRequest):
+    if SERPAPI_API_KEY:
+        # Use SerpApi (GoogleSearch)
+        try:
+            params = {
+                "engine": "google",
+                "q": request.query,
+                "api_key": SERPAPI_API_KEY,
+                "num": request.maxResults or 5
+            }
+            search = GoogleSearch(params)
+            results = search.get_dict()
+            organic_results = results.get("organic_results", [])
+            
+            cleaned_results = []
+            for i, r in enumerate(organic_results, 1):
+                cleaned_results.append({
+                    "title": r.get("title"),
+                    "url": r.get("link"),
+                    "snippet": r.get("snippet"),
+                    "position": i
+                })
+                
+            final_answer = "I found the following information based on Google search (via SerpApi)."
+            
+            return {
+                "query": request.query,
+                "results": cleaned_results,
+                "answer": final_answer,
+                "metadata": {
+                    "engine": "SerpApi (Google)",
+                    "resultsCount": len(cleaned_results),
+                    "timestamp": time.time()
+                }
+            }
+        except Exception as e:
+            print("SerpApi error:", e)
+            # Fallthrough to Serper if SerpApi fails? Or just raise?
+            # Let's raise for now to be clear, or check Serper if configured.
+            if not SERPER_API_KEY:
+                 raise HTTPException(status_code=500, detail=f"Web search failed (SerpApi): {str(e)}")
+            print("Falling back to Serper API...")
+
     if not SERPER_API_KEY:
-        raise HTTPException(status_code=500, detail="SERPER_API_KEY missing")
+        raise HTTPException(status_code=500, detail="Neither SERPAPI_API_KEY nor SERPER_API_KEY configured")
 
     # Serper API endpoint
     url = "https://google.serper.dev/search"

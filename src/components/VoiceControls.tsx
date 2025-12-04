@@ -117,6 +117,12 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
           streams: event.streams.length
         });
 
+        // CRITICAL: Unmute the track if it's muted
+        if (event.track.muted) {
+          console.log('🔇 Track is muted, attempting to unmute...');
+          // Note: track.muted is read-only, but we can ensure the audio element isn't muted
+        }
+
         // Create or reuse audio element in DOM (helps with autoplay policies)
         let audioElement = document.getElementById('openai-voice-audio') as HTMLAudioElement;
         if (!audioElement) {
@@ -129,6 +135,7 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
 
         audioElement.autoplay = true;
         audioElement.volume = 1.0; // Ensure volume is at maximum
+        audioElement.muted = false; // CRITICAL: Ensure audio element is NOT muted
         audioElement.srcObject = event.streams[0];
         audioElementRef.current = audioElement;
 
@@ -181,7 +188,7 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
       voiceSessionActiveRef.current = true;
 
       const baseUrl = 'https://api.openai.com/v1/realtime';
-      const model = 'gpt-4o-realtime-preview-2024-12-17';
+      const model = 'gpt-4o-realtime-preview';
       const response = await fetch(`${baseUrl}?model=${model}`, {
         method: 'POST',
         body: offer.sdp,
