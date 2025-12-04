@@ -357,7 +357,10 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
         voice: selectedVoice,
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
-        input_audio_transcription: { model: 'whisper-1' },
+        input_audio_transcription: {
+          model: 'whisper-1',
+          language: 'en'
+        },
         turn_detection: enableVAD ? { type: 'server_vad' } : null,
         tools: [
           {
