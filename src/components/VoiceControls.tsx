@@ -372,7 +372,7 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
               properties: {
                 clientId: {
                   type: 'string',
-                  description: 'The client ID to query transactions for (format: "client1", "client2", etc). If user says "client 1" or "client one", use "client1". Omit to query ALL transactions.',
+                  description: 'The client ID to query transactions for (e.g., "5001", "5002"). Use the exact number the user mentions. Omit to query ALL transactions.',
                 },
                 type: {
                   type: 'string',
@@ -401,7 +401,7 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
               properties: {
                 clientId: {
                   type: 'string',
-                  description: 'The client ID to generate chart for (format: "client1", "client2", etc). If user says "client 1" or "client one", use "client1".',
+                  description: 'The client ID to generate chart for (e.g., "5001", "5002"). Use the exact number the user mentions.',
                 },
                 chartType: {
                   type: 'string',
@@ -611,23 +611,12 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
       let result: any;
 
       if (name === 'query_transactions') {
-        // Ensure clientId is properly formatted as "client{number}"
-        const formattedArgs = { ...args };
-        if (formattedArgs.clientId) {
-          const clientIdStr = String(formattedArgs.clientId);
-          // If it's just a number, prefix with "client"
-          if (/^\d+$/.test(clientIdStr)) {
-            formattedArgs.clientId = `client${clientIdStr}`;
-          }
-          console.log('📝 Formatted clientId:', args.clientId, '→', formattedArgs.clientId);
-        }
-
         const response = await fetch(
           `${supabaseUrl}/functions/v1/transaction-query`,
           {
             method: 'POST',
             headers,
-            body: JSON.stringify(formattedArgs),
+            body: JSON.stringify(args),
           }
         );
 
@@ -652,23 +641,13 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
           }
         }
       } else if (name === 'generate_transaction_chart') {
-        // Ensure clientId is properly formatted as "client{number}"
-        let clientId = args.clientId;
-        if (clientId) {
-          const clientIdStr = String(clientId);
-          if (/^\d+$/.test(clientIdStr)) {
-            clientId = `client${clientIdStr}`;
-          }
-          console.log('📝 Formatted clientId for chart:', args.clientId, '→', clientId);
-        }
-
         const response = await fetch(
           `${supabaseUrl}/functions/v1/transaction-chart`,
           {
             method: 'POST',
             headers,
             body: JSON.stringify({
-              clientId,
+              clientId: args.clientId,
               chartType: args.chartType || 'bar',
               dateFrom: args.dateFrom,
               dateTo: args.dateTo,
