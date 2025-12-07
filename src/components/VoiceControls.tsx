@@ -129,6 +129,19 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
             muted: track.muted,
             readyState: track.readyState
           });
+
+          // Explicitly enable the track
+          track.enabled = true;
+          console.log(`  ✅ Track ${idx} enabled explicitly`);
+
+          // Listen for unmute event (track.muted is read-only, but we can detect when it changes)
+          track.addEventListener('unmute', () => {
+            console.log(`  🔊 Track ${idx} unmuted!`);
+          });
+
+          if (track.muted) {
+            console.warn(`  ⚠️ Track ${idx} is muted at source - waiting for unmute event`);
+          }
         });
 
         // Create or reuse audio element in DOM (helps with autoplay policies)
