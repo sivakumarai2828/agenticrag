@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { User, Eye } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import AnswerCard from './AnswerCard';
 import { IntentType } from '../router/intentRouter';
 import { VectorResult } from '../services/mockVector';
@@ -42,18 +42,7 @@ export default function ChatThread({ messages, onViewTrace, isLoading }: ChatThr
       <div className="max-w-4xl mx-auto space-y-6">
         {messages.map(message => (
           <div key={message.id}>
-            {message.role === 'user' ? (
-              <div className="flex justify-end mb-4">
-                <div className="flex items-start space-x-3">
-                  <div className="bg-violet-600 text-white rounded-2xl px-5 py-3 max-w-2xl">
-                    <p className="text-sm leading-relaxed">{message.content}</p>
-                  </div>
-                  <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                    <User size={16} className="text-gray-600" />
-                  </div>
-                </div>
-              </div>
-            ) : (
+            {message.role === 'assistant' && (
               <div className="flex items-start space-x-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-full flex items-center justify-center flex-shrink-0">
                   <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
