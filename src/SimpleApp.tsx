@@ -1,7 +1,6 @@
 import React, { useState, KeyboardEvent } from 'react';
 import { Send, Zap, Upload, X, Database, MessageSquare } from 'lucide-react';
 import Toggles from './components/Toggles';
-import QuickActions from './components/QuickActions';
 import InsightsBar from './components/InsightsBar';
 import VoiceControls from './components/VoiceControls';
 import ChatThread, { Message } from './components/ChatThread';
@@ -133,11 +132,11 @@ export default function SimpleApp() {
   };
 
   const handleViewTrace = (messageId: string) => {
+    const message = messages.find(m => m.id === messageId);
+    if (message?.traceSteps) {
+      setCurrentTraceSteps(message.traceSteps);
+    }
     setTraceDrawerOpen(true);
-  };
-
-  const handleQuickAction = (query: string) => {
-    setInput(query);
   };
 
   const handleVoiceTranscript = async (text: string, skipAgentProcessing: boolean = false) => {
@@ -218,26 +217,26 @@ export default function SimpleApp() {
   };
 
 
-  const handleVoiceAssistantMessage = (text: string, sources?: any[], tableData?: any, chartData?: any) => {
+  const handleVoiceAssistantMessage = (text: string, sources?: any[], tableData?: any, chartData?: any, traceSteps?: any[], metadata?: any) => {
     console.log('Voice assistant message with data:', text, sources, tableData, chartData);
 
     let formattedTable;
-    let intent: IntentType | undefined;
+    let finalIntent: IntentType = 'general';
 
     if (tableData) {
       const summary = tableData.summary || tableData;
       if (summary.transactions && Array.isArray(summary.transactions)) {
         formattedTable = formatTransactionTable(summary);
-        intent = 'transaction_query';
+        finalIntent = 'transaction_query';
       }
     }
 
     if (chartData) {
-      intent = 'transaction_chart';
+      finalIntent = 'transaction_chart';
     }
 
     if (sources?.includes('EMAIL')) {
-      intent = 'transaction_email';
+      finalIntent = 'transaction_email';
     }
 
     const assistantMessage: Message = {
@@ -247,8 +246,13 @@ export default function SimpleApp() {
       sources: sources || ['OPENAI'],
       table: formattedTable,
       chart: chartData,
-      intent: intent || 'doc_rag',
+      intent: finalIntent,
+      traceSteps: traceSteps || [{ name: 'Nexa Voice API', latency: 450, timestamp: Date.now() }],
     };
+
+    if (traceSteps) {
+      setCurrentTraceSteps(traceSteps);
+    }
 
     setMessages(prev => [...prev, assistantMessage]);
   };

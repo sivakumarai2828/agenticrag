@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 're
 
 interface VoiceControlsProps {
   onTranscript: (text: string) => void;
-  onAssistantMessage?: (text: string, sources?: any[], tableData?: any, chartData?: any) => void;
+  onAssistantMessage?: (text: string, sources?: any[], tableData?: any, chartData?: any, traceSteps?: any[], metadata?: any) => void;
   isEnabled: boolean;
   onToggle: () => void;
   onConnectionChange?: (isConnected: boolean) => void;
@@ -43,10 +43,11 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
   const assistantResponseRef = useRef<string>('');
   const responseSourcesRef = useRef<any[]>([]);
   const voiceSessionActiveRef = useRef<boolean>(false);
-  const pendingMessageRef = useRef<{ text: string; sources?: any[]; tableData?: any; chartData?: any } | null>(null);
+  const pendingMessageRef = useRef<{ text: string; sources?: any[]; tableData?: any; chartData?: any; traceSteps?: any[]; metadata?: any } | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const initialResponseCancelledRef = useRef<boolean>(false);
   const userHasSpokenRef = useRef<boolean>(false);
+  const isToolPendingRef = useRef<boolean>(false);
 
   useEffect(() => {
     setSelectedVoice(selectedVoiceProp);
@@ -93,12 +94,12 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
     try {
       setStatus('connecting');
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const sessionUrl = `${supabaseUrl}/functions/v1/openai-session?voice=${selectedVoice}`;
+      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const sessionUrl = `${backendUrl}/openai-session?voice=${selectedVoice}`;
 
       const tokenResponse = await fetch(sessionUrl);
       if (!tokenResponse.ok) {
-        throw new Error('Failed to get ephemeral token');
+        throw new Error('Failed to get ephemeral token from backend');
       }
 
       const sessionData = await tokenResponse.json();
@@ -280,13 +281,20 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
       type: 'session.update',
       session: {
         modalities: ['text', 'audio'],
-        instructions: `You are Nexa, a helpful AI voice assistant with access to transaction data, charts, and email capabilities.
+        instructions: `You are Nexa, a helpful AI voice assistant with access to transaction data, charts, and email capabilities. You also have powerful web-based capabilities including real-time Google search, local weather information, and latest stock market prices.
+
+DEFAULT EMAIL:
+- If the user asks to email ANY information (reports, search results, or general text) without specifying an email address, ALWAYS use sivakumarai2828@gmail.com as the default recipient.
 
 LANGUAGE REQUIREMENT:
 - ALWAYS respond in English by default
 - ONLY switch to another language if the user EXPLICITLY asks you to speak in that language
-- If user says "speak in Hindi" or "respond in Spanish", then you may use that language
-- Otherwise, ALWAYS use English regardless of user's accent or speech patterns
+ 
+ LANGUAGE REQUIREMENT:
+ - ALWAYS respond in English by default
+ - ONLY switch to another language if the user EXPLICITLY asks you to speak in that language
+ - If user says "speak in Hindi" or "respond in Spanish", then you may use that language
+ - Otherwise, ALWAYS use English regardless of user's accent or speech patterns
 
 CRITICAL RULES:
 1. NEVER greet the user when the session starts
@@ -296,6 +304,7 @@ CRITICAL RULES:
 5. When introducing yourself (if asked), say "I'm Nexa" or "This is Nexa"
 
 Be concise and helpful. When users ask about transactions, use the appropriate function.
+When referring to or asking for client IDs, ALWAYS use the format "Client 1", "Client 2", etc.
 When users request charts, use the generate_transaction_chart function with the correct chartType:
 - Use "pie" for pie charts (status distribution)
 - Use "line" for line charts (trends over time)
@@ -308,13 +317,27 @@ WEB SEARCH RULES:
 - DO NOT say "the results didn't contain relevant information" - the results ARE the answer
 - Share the top 3-5 results with their titles and descriptions
 - For restaurant queries, news, weather, or any web search, present the actual search results you received
-
-When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, friendly farewell like "Goodbye!" or "See you later!" Do NOT ask how you can help.`,
+ 
+ REAL-TIME API RULES:
+- You are an agentic assistant that answers questions using ONLY real-time APIs for Weather and Stocks.
+- Never use training data. Never guess. Use only API responses to answer.
+- If data is missing or API fails, respond: "Data not available".
+- Do not predict, estimate, or hallucinate.
+- Weather and AQI should use latitude/longitude (handled by backend).
+- Output: Short summary, bullet points with values and units, include timestamp if present.
+- Use get_weather and get_stock_price for these domains.
+ 
+ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, friendly farewell like "Goodbye!" or "See you later!" Do NOT ask how you can help.`,
         voice: selectedVoice,
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
         input_audio_transcription: { model: 'whisper-1' },
-        turn_detection: enableVAD ? { type: 'server_vad' } : null,
+        turn_detection: enableVAD ? {
+          type: 'server_vad',
+          threshold: 0.65, // Increased from default 0.5 to be less sensitive to noise
+          prefix_padding_ms: 300,
+          silence_duration_ms: 800, // Increased from 500ms to avoid cutting off users and reduce accidental triggers
+        } : null,
         tools: [
           {
             type: 'function',
@@ -324,8 +347,8 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
               type: 'object',
               properties: {
                 clientId: {
-                  type: 'number',
-                  description: 'The client ID to query transactions for. Omit to query ALL transactions.',
+                  type: 'string',
+                  description: 'The client name to query transactions for (e.g., "Client 1", "Client 2"). Omit to query ALL transactions.',
                 },
                 type: {
                   type: 'string',
@@ -353,8 +376,8 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
               type: 'object',
               properties: {
                 clientId: {
-                  type: 'number',
-                  description: 'The client ID to generate chart for',
+                  type: 'string',
+                  description: 'The client name to generate chart for (e.g., "Client 1", "Client 2")',
                 },
                 chartType: {
                   type: 'string',
@@ -375,22 +398,50 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
           },
           {
             type: 'function',
-            name: 'send_transaction_email',
-            description: 'Send an email report with transaction data. If user does not specify an email address, use the default email: sivakumarai2828@gmail.com',
+            name: 'send_general_email',
+            description: 'Send a general email with any text content (like search results, restaurant lists, or general information). Use this for non-transactional content.',
             parameters: {
               type: 'object',
               properties: {
-                clientId: {
-                  type: 'number',
-                  description: 'The client ID to generate report for',
-                },
-                email: {
+                to: {
                   type: 'string',
-                  description: 'Email address to send the report to. Default: sivakumarai2828@gmail.com',
+                  description: 'Recipient email. Default: sivakumarai2828@gmail.com',
                   default: 'sivakumarai2828@gmail.com',
                 },
+                subject: {
+                  type: 'string',
+                  description: 'Brief subject line for the email',
+                },
+                content: {
+                  type: 'string',
+                  description: 'The body text to send in the email',
+                },
               },
-              required: ['clientId'],
+              required: ['subject', 'content'],
+            },
+          },
+          {
+            type: 'function',
+            name: 'send_email_report',
+            description: 'Send a structured transaction report via email. Use this when users ask for transaction reports or database summaries.',
+            parameters: {
+              type: 'object',
+              properties: {
+                to: {
+                  type: 'string',
+                  description: 'Recipient email. Default: sivakumarai2828@gmail.com',
+                  default: 'sivakumarai2828@gmail.com',
+                },
+                clientId: {
+                  type: 'string',
+                  description: 'The client ID to include in the report',
+                },
+                subject: {
+                  type: 'string',
+                  description: 'Subject line for the report email',
+                },
+              },
+              required: ['clientId', 'subject'],
             },
           },
           {
@@ -411,6 +462,30 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
                 },
               },
               required: ['query'],
+            },
+          },
+          {
+            type: 'function',
+            name: 'get_weather',
+            description: 'Get real-time weather information for a specific city.',
+            parameters: {
+              type: 'object',
+              properties: {
+                city: { type: 'string', description: 'The city name (e.g., "London", "San Francisco")' },
+              },
+              required: ['city'],
+            },
+          },
+          {
+            type: 'function',
+            name: 'get_stock_price',
+            description: 'Get the latest stock price for a given ticker symbol.',
+            parameters: {
+              type: 'object',
+              properties: {
+                symbols: { type: 'string', description: 'Stock ticker symbol (e.g., "AAPL", "TSLA", "MSFT")' },
+              },
+              required: ['symbols'],
             },
           },
         ],
@@ -458,7 +533,9 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
       case 'response.function_call_arguments.done':
         console.log('Function call complete:', event);
         if (event.name && event.arguments) {
+          isToolPendingRef.current = true;
           await handleFunctionCall(event.name, event.arguments, event.call_id);
+          isToolPendingRef.current = false;
         }
         break;
 
@@ -466,14 +543,21 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
       case 'response.audio_transcript.done':
         console.log('Audio output complete');
         // Audio has finished playing, display any pending message
-        setTimeout(() => {
+        // If a tool is pending, wait for it
+        const checkAndEmit = () => {
+          if (isToolPendingRef.current) {
+            setTimeout(checkAndEmit, 100);
+            return;
+          }
+
           if (pendingMessageRef.current && onAssistantMessage) {
-            const { text, sources, tableData, chartData } = pendingMessageRef.current;
-            onAssistantMessage(text, sources, tableData, chartData);
+            const { text, sources, tableData, chartData, traceSteps, metadata } = pendingMessageRef.current;
+            onAssistantMessage(text, sources, tableData, chartData, traceSteps, metadata);
             pendingMessageRef.current = null;
           }
           setIsSpeaking(false);
-        }, 500);
+        };
+        setTimeout(checkAndEmit, 500);
         break;
 
       case 'response.done':
@@ -488,29 +572,24 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
             );
 
             if (!hasFunctionCalls) {
-              // Skip ONLY the very first auto-greeting before user speaks
-              // Check if this looks like a greeting AND user hasn't spoken
-              const looksLikeGreeting = /^(hello|hi|hey|greetings|welcome)/i.test(assistantResponseRef.current.trim());
-
-              if (!userHasSpokenRef.current && looksLikeGreeting && !initialResponseCancelledRef.current) {
-                console.log('Suppressing initial auto-greeting:', assistantResponseRef.current);
-                initialResponseCancelledRef.current = true;
+              // Skip responses if user hasn't spoken yet (suppress auto-greetings)
+              if (!userHasSpokenRef.current) {
+                console.log('🔇 Suppressing auto-greeting (user hasn\'t spoken yet)');
                 assistantResponseRef.current = '';
-                pendingMessageRef.current = null;
-                setIsSpeaking(false);
-                // Stop audio playback if it started
-                if (audioElementRef.current) {
-                  audioElementRef.current.pause();
-                  audioElementRef.current.currentTime = 0;
-                }
                 return;
               }
 
               // Queue text message to display after audio finishes
-              pendingMessageRef.current = {
-                text: assistantResponseRef.current,
-                sources: ['OPENAI'],
-              };
+              if (pendingMessageRef.current) {
+                // If we already have tool data (charts/tables), just update the text with the final AI response
+                pendingMessageRef.current.text = assistantResponseRef.current;
+              } else {
+                // New text-only message
+                pendingMessageRef.current = {
+                  text: assistantResponseRef.current,
+                  sources: ['OPENAI'],
+                };
+              }
             }
           }
 
@@ -542,19 +621,17 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
       const args = JSON.parse(argsJson);
       console.log(`Function called: ${name}`, args);
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
       const headers = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseKey}`,
       };
 
       let result: any;
 
       if (name === 'query_transactions') {
         const response = await fetch(
-          `${supabaseUrl}/functions/v1/transaction-query`,
+          `${backendUrl}/transaction-query`,
           {
             method: 'POST',
             headers,
@@ -579,12 +656,13 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
               text: result.voiceSummary,
               sources: ['DB'],
               tableData: result.summary,
+              traceSteps: result.traceSteps || [{ name: 'Database Query', latency: 150, timestamp: Date.now() }],
             };
           }
         }
       } else if (name === 'generate_transaction_chart') {
         const response = await fetch(
-          `${supabaseUrl}/functions/v1/transaction-chart`,
+          `${backendUrl}/transaction-chart`,
           {
             method: 'POST',
             headers,
@@ -614,18 +692,43 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
               text: result.voiceSummary,
               sources: ['DB'],
               chartData: result.chartData,
+              traceSteps: result.traceSteps || [{ name: 'Chart Generation', latency: 200, timestamp: Date.now() }],
             };
           }
         }
-      } else if (name === 'send_transaction_email') {
+      } else if (name === 'send_general_email') {
         const defaultEmail = 'sivakumarai2828@gmail.com';
-        const recipientEmail = args.email || defaultEmail;
+        const recipientEmail = args.to || defaultEmail;
 
-        console.log('📧 EMAIL FUNCTION CALLED - Client:', args.clientId, '| To:', recipientEmail, '| Original:', args.email);
+        const response = await fetch(`${backendUrl}/transaction-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: recipientEmail,
+            subject: args.subject,
+            body: args.content,
+          }),
+        });
+
+        if (!response.ok) {
+          result = { success: false, voiceSummary: 'I failed to send the email.' };
+        } else {
+          result = await response.json();
+          pendingMessageRef.current = {
+            text: result.voiceSummary,
+            sources: ['EMAIL'],
+            traceSteps: [{ name: 'Send Email', latency: 300, timestamp: Date.now() }],
+          };
+        }
+      } else if (name === 'send_email_report') {
+        const defaultEmail = 'sivakumarai2828@gmail.com';
+        const recipientEmail = args.to || defaultEmail;
+
+        console.log('📧 EMAIL FUNCTION CALLED - Client:', args.clientId, '| To:', recipientEmail, '| Original:', args.to);
 
         // First, fetch transaction data
         const transactionResponse = await fetch(
-          `${supabaseUrl}/functions/v1/transaction-query`,
+          `${backendUrl}/transaction-query`,
           {
             method: 'POST',
             headers,
@@ -644,13 +747,13 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
 
           // Now send the email with transaction data
           const response = await fetch(
-            `${supabaseUrl}/functions/v1/transaction-email`,
+            `${backendUrl}/transaction-email`,
             {
               method: 'POST',
               headers,
               body: JSON.stringify({
                 to: recipientEmail,
-                subject: `Transaction Report for Client ${args.clientId}`,
+                subject: args.subject,
                 transactionSummary: transactionData.summary,
               }),
             }
@@ -677,7 +780,36 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
             }
           }
         }
-      } else if (name === 'web_search') {
+      } else if (name === 'get_weather') {
+        const response = await fetch(`${backendUrl}/weather`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(args),
+        });
+        result = await response.json();
+        if (result.success) {
+          pendingMessageRef.current = {
+            text: result.voiceSummary,
+            sources: result.sources || ['OPEN-METEO'],
+            traceSteps: result.traceSteps,
+          };
+        }
+      } else if (name === 'get_stock_price') {
+        const response = await fetch(`${backendUrl}/stock-price`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(args),
+        });
+        result = await response.json();
+        if (result.success) {
+          pendingMessageRef.current = {
+            text: result.voiceSummary,
+            sources: result.sources || ['YAHOO-FINANCE'],
+            traceSteps: result.traceSteps,
+          };
+        }
+      }
+      else if (name === 'web_search') {
         // Call Python backend directly (not Supabase Edge Function)
         const backendUrl = 'http://localhost:8000';
 
@@ -716,11 +848,16 @@ When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, frie
               `${i + 1}. ${r.title}: ${r.snippet}`
             ).join('. ');
 
-            // DON'T set pendingMessageRef - let OpenAI handle the display
-            // This prevents duplicate messages (one from WEB, one from OPENAI)
+            // Return THE FORMATTED STRING with the source prefix
+            const sourcePrefix = "According to Google search results, here's what I found: ";
+            result = sourcePrefix + directResponse;
 
-            // Return ONLY the formatted text - no complex object
-            result = `I found ${searchData.results.length} results. ${directResponse}`;
+            // Display in UI with WEB source and trace
+            pendingMessageRef.current = {
+              text: result,
+              sources: ['WEB'],
+              traceSteps: searchData.traceSteps || [{ name: "Web Search", latency: 500, timestamp: Date.now() }],
+            };
           } else {
             result = 'I could not find any results for that search query.';
           }

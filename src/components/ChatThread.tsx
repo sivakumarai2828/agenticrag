@@ -17,6 +17,7 @@ export interface Message {
   table?: { columns: string[]; rows: Record<string, any>[] };
   chart?: ChartConfig;
   json?: APIStatusResult;
+  traceSteps?: any[];
 }
 
 interface ChatThreadProps {
@@ -40,7 +41,7 @@ export default function ChatThread({ messages, onViewTrace, isLoading }: ChatThr
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto px-6 py-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        {messages.map(message => (
+        {messages.filter(m => m.role !== 'user').map(message => (
           <div key={message.id}>
             {message.role === 'user' ? (
               <div className="flex justify-end mb-4">

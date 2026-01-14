@@ -7,4 +7,16 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  server: {
+    proxy: {
+      '/transaction-query': 'http://localhost:8000',
+      '/transaction-chart': 'http://localhost:8000',
+      '/transaction-email': 'http://localhost:8000',
+      '/agent-orchestrator': 'http://localhost:8000',
+      '/rag-retrieval': 'http://localhost:8000',
+      '/web-search-tool': 'http://localhost:8000',
+      '/openai-chat': 'http://localhost:8000',
+      '/openai-session': 'http://localhost:8000',
+    },
+  },
 });
