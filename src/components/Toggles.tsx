@@ -1,5 +1,3 @@
-import { useState, useEffect, useRef } from 'react';
-import { configStore, TimeRange } from '../store/ConfigStore';
 import { Mic, MicOff, Volume2 } from 'lucide-react';
 
 interface TogglesProps {
@@ -14,6 +12,7 @@ interface TogglesProps {
   onVoiceChange?: (voice: string) => void;
   enableVAD?: boolean;
   onVADChange?: (enabled: boolean) => void;
+  minimal?: boolean;
 }
 
 export default function Toggles({
@@ -28,20 +27,9 @@ export default function Toggles({
   onVoiceChange,
   enableVAD = true,
   onVADChange,
+  minimal = false,
 }: TogglesProps) {
-  const [config, setConfig] = useState(configStore.getConfig());
 
-  useEffect(() => {
-    return configStore.subscribe(setConfig);
-  }, []);
-
-  const toggleSource = (source: keyof typeof config.sources) => {
-    configStore.updateSources({ [source]: !config.sources[source] });
-  };
-
-  const setTimeRange = (range: TimeRange) => {
-    configStore.setTimeRange(range);
-  };
 
   const handleToggle = async () => {
     if (!voiceEnabled) {
@@ -62,17 +50,20 @@ export default function Toggles({
         <>
           <button
             onClick={onVoiceToggle}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200 ${
-              voiceEnabled
-                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 shadow-lg shadow-green-200'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
-            }`}
+            className={`flex items-center gap-2 rounded-full transition-all duration-200 ${minimal
+              ? 'p-2 text-slate-400 hover:text-purple-600'
+              : voiceEnabled
+                ? 'bg-purple-50 text-purple-600 border border-purple-200 px-4 py-2 hover:bg-purple-100 shadow-sm'
+                : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200 px-4 py-2'
+              }`}
             title={voiceEnabled ? 'Turn off voice mode' : 'Turn on voice mode'}
           >
             {voiceEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-            <span className="text-sm font-semibold">
-              {voiceEnabled ? 'Voice On' : 'Voice Off'}
-            </span>
+            {!minimal && (
+              <span className="text-sm font-semibold">
+                {voiceEnabled ? 'Voice On' : 'Voice Off'}
+              </span>
+            )}
           </button>
 
           {voiceEnabled && voiceStatus === 'idle' && (
