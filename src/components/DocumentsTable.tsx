@@ -8,6 +8,7 @@ interface Document {
   content: string;
   url: string | null;
   created_at: string;
+  metadata?: any;
 }
 
 export default function DocumentsTable() {
@@ -22,11 +23,28 @@ export default function DocumentsTable() {
     try {
       const { data, error } = await supabase
         .from('documents')
-        .select('id, title, content, url, created_at')
+        .select('id, title, content, url, created_at, metadata')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setDocuments(data || []);
+
+      // Deduplicate by original_title if it exists, otherwise use title
+      const uniqueDocs: Document[] = [];
+      const seenTitles = new Set<string>();
+
+      (data || []).forEach((doc: any) => {
+        const originalTitle = doc.metadata?.original_title || doc.title.replace(/ \(Part \d+\)$/, '');
+
+        if (!seenTitles.has(originalTitle)) {
+          seenTitles.add(originalTitle);
+          uniqueDocs.push({
+            ...doc,
+            title: originalTitle // Use the clean title
+          });
+        }
+      });
+
+      setDocuments(uniqueDocs);
     } catch (err) {
       console.error('Error fetching documents:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch documents');

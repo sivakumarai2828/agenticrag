@@ -21,7 +21,7 @@ export default function ChartView({ config }: ChartViewProps) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `chart-${Date.now()}.png`;
+        link.download = `velyx-data-${Date.now()}.png`;
         a.click();
         URL.revokeObjectURL(url);
       }
@@ -30,18 +30,18 @@ export default function ChartView({ config }: ChartViewProps) {
 
   return (
     <div className="mt-4">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-semibold text-gray-700">Visualization</h4>
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Data Visualization</h4>
         <button
           onClick={handleDownload}
-          className="flex items-center space-x-1 px-3 py-1.5 text-xs font-medium text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+          className="flex items-center space-x-2 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-[#F59E8B] hover:bg-white rounded-lg transition-all border border-slate-200/60"
         >
-          <Download size={14} />
-          <span>PNG</span>
+          <Download size={12} />
+          <span>Export (PNG)</span>
         </button>
       </div>
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <canvas ref={canvasRef} id="chart-canvas" width="600" height="300"></canvas>
+      <div className="bg-white/60 backdrop-blur-xl border border-white shadow-inner rounded-2xl p-6">
+        <canvas ref={canvasRef} id="chart-canvas" width="600" height="300" className="w-full h-auto"></canvas>
       </div>
     </div>
   );
@@ -52,7 +52,7 @@ function drawChart(canvas: HTMLCanvasElement, config: ChartConfig): void {
   if (!ctx) return;
 
   const { data } = config;
-  const padding = 50;
+  const padding = 60;
   const width = canvas.width - padding * 2;
   const height = canvas.height - padding * 2;
 
@@ -64,21 +64,21 @@ function drawChart(canvas: HTMLCanvasElement, config: ChartConfig): void {
   }
 
   const allValues = data.datasets.flatMap(d => d.data);
-  const maxValue = Math.max(...allValues);
+  const maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
   const minValue = 0;
-  const range = maxValue - minValue;
+  const range = maxValue === 0 ? 10 : maxValue - minValue;
 
-  ctx.fillStyle = '#1f2937';
-  ctx.font = '12px sans-serif';
+  ctx.fillStyle = '#64748B';
+  ctx.font = 'bold 10px sans-serif';
 
   const maxLabels = 8;
-  const labelStep = Math.ceil(data.labels.length / maxLabels);
+  const labelStep = data.labels.length > 0 ? Math.ceil(data.labels.length / maxLabels) : 1;
   data.labels.forEach((label, i) => {
     if (i % labelStep === 0 || i === data.labels.length - 1) {
-      const x = padding + (i * width) / (data.labels.length - 1);
+      const x = padding + (i * width) / Math.max(1, data.labels.length - 1);
       ctx.save();
-      ctx.translate(x, canvas.height - 20);
-      ctx.rotate(-Math.PI / 6);
+      ctx.translate(x, canvas.height - 25);
+      ctx.rotate(-Math.PI / 8);
       ctx.textAlign = 'right';
       ctx.fillText(label, 0, 0);
       ctx.restore();
@@ -88,9 +88,10 @@ function drawChart(canvas: HTMLCanvasElement, config: ChartConfig): void {
   [0, 0.25, 0.5, 0.75, 1].forEach(factor => {
     const value = Math.round(minValue + range * factor);
     const y = padding + height * (1 - factor);
-    ctx.fillText(value.toLocaleString(), 10, y + 4);
+    ctx.fillText(value.toLocaleString(), 15, y + 4);
 
-    ctx.strokeStyle = '#e5e7eb';
+    ctx.strokeStyle = '#E2E8F0';
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(padding, y);
     ctx.lineTo(canvas.width - padding, y);
@@ -101,23 +102,41 @@ function drawChart(canvas: HTMLCanvasElement, config: ChartConfig): void {
     const offsetX = datasetIndex * 20 - 10;
 
     if (config.type === 'bar') {
-      const barWidth = width / data.labels.length / data.datasets.length - 8;
+      const barWidth = width / Math.max(1, data.labels.length) / data.datasets.length - 8;
       dataset.data.forEach((value, i) => {
         const x =
-          padding + (i * width) / data.labels.length + offsetX + datasetIndex * barWidth;
+          padding + (i * width) / Math.max(1, data.labels.length) + offsetX + datasetIndex * barWidth;
         const barHeight = ((value - minValue) / range) * height;
         const y = padding + height - barHeight;
 
         ctx.fillStyle = dataset.color;
-        ctx.fillRect(x, y, barWidth, barHeight);
+
+        // Rounded bar effect
+        const radius = 4;
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barHeight, [radius, radius, 0, 0]);
+        ctx.fill();
+
+        // Subtle glow
+        ctx.shadowColor = dataset.color;
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
       });
     } else if (config.type === 'line') {
       ctx.strokeStyle = dataset.color;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
 
+      // Shadow for line
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 5;
+
+      ctx.beginPath();
       dataset.data.forEach((value, i) => {
-        const x = padding + (i * width) / (data.labels.length - 1);
+        const x = padding + (i * width) / Math.max(1, data.labels.length - 1);
         const y = padding + height - ((value - minValue) / range) * height;
 
         if (i === 0) {
@@ -126,25 +145,33 @@ function drawChart(canvas: HTMLCanvasElement, config: ChartConfig): void {
           ctx.lineTo(x, y);
         }
       });
-
       ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
 
       dataset.data.forEach((value, i) => {
-        const x = padding + (i * width) / (data.labels.length - 1);
+        const x = padding + (i * width) / Math.max(1, data.labels.length - 1);
         const y = padding + height - ((value - minValue) / range) * height;
 
         ctx.fillStyle = dataset.color;
         ctx.beginPath();
-        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
       });
     }
 
     ctx.fillStyle = dataset.color;
-    ctx.fillRect(padding + datasetIndex * 120, 10, 12, 12);
-    ctx.fillStyle = '#1f2937';
-    ctx.font = '11px sans-serif';
-    ctx.fillText(dataset.label, padding + datasetIndex * 120 + 18, 20);
+    ctx.beginPath();
+    ctx.arc(padding + datasetIndex * 180 + 6, 15, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#64748B';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(dataset.label.toUpperCase(), padding + datasetIndex * 180 + 20, 19);
   });
 }
 
