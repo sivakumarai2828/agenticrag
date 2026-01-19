@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { Mic } from 'lucide-react';
 
 interface VoiceControlsProps {
   onTranscript: (text: string) => void;
@@ -10,22 +11,28 @@ interface VoiceControlsProps {
   onListeningChange?: (isListening: boolean) => void;
   onSpeakingChange?: (isSpeaking: boolean) => void;
   onAudioLevelChange?: (level: number) => void;
+  onActivityStart?: (stepId: string) => void;
+  onActivityComplete?: (stepId: string) => void;
   selectedVoice?: string;
   enableVAD?: boolean;
+  minimal?: boolean;
 }
 
 const VoiceControls = forwardRef<any, VoiceControlsProps>(({
   onTranscript,
   onAssistantMessage,
   isEnabled,
-  // onToggle is passed but not used internally
+  onToggle,
   onConnectionChange,
   onStatusChange,
   onListeningChange,
   onSpeakingChange,
   onAudioLevelChange,
+  onActivityStart,
+  onActivityComplete,
   selectedVoice: selectedVoiceProp = 'alloy',
   enableVAD: enableVADProp = true,
+  minimal = false,
 }, ref) => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -41,6 +48,7 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const assistantResponseRef = useRef<string>('');
+
   const responseSourcesRef = useRef<any[]>([]);
   const voiceSessionActiveRef = useRef<boolean>(false);
   const pendingMessageRef = useRef<{ text: string; sources?: any[]; tableData?: any; chartData?: any; traceSteps?: any[]; metadata?: any } | null>(null);
@@ -48,6 +56,10 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
   const initialResponseCancelledRef = useRef<boolean>(false);
   const userHasSpokenRef = useRef<boolean>(false);
   const isToolPendingRef = useRef<boolean>(false);
+  const isSynthesisWaitingRef = useRef<boolean>(false);
+  const lastEmittedTextRef = useRef<string>('');
+  const isEmittingRef = useRef<boolean>(false);
+  const pendingToolMetadataRef = useRef<{ sources: string[]; traceSteps: any[] } | null>(null);
 
   useEffect(() => {
     setSelectedVoice(selectedVoiceProp);
@@ -87,6 +99,7 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
 
   useImperativeHandle(ref, () => ({
     connectToOpenAI,
+    cleanup,
   }));
 
 
@@ -281,53 +294,41 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
       type: 'session.update',
       session: {
         modalities: ['text', 'audio'],
-        instructions: `You are Nexa, a helpful AI voice assistant with access to transaction data, charts, and email capabilities. You also have powerful web-based capabilities including real-time Google search, local weather information, and latest stock market prices.
+        instructions: `You are Velyx, a high-performance AI assistant powering Business Intelligence and Transaction Queries. You offer instant, personalized support by processing private knowledge bases, transaction databases, and real-time web data. 
+
+CAPABILITIES:
+- Transaction Analysis: Query purchases, refunds, and client-specific data.
+- Visual Analytics: Generate Bar, Line, and Pie charts for transaction trends.
+- Email Integration: Send transaction reports and summaries to users.
+- RAG Knowledge Base: Answer complex questions from indexed documents.
+- Real-time Data: Access Stocks, Weather, and Web Search results.
 
 DEFAULT EMAIL:
 - If the user asks to email ANY information (reports, search results, or general text) without specifying an email address, ALWAYS use sivakumarai2828@gmail.com as the default recipient.
 
 LANGUAGE REQUIREMENT:
-- ALWAYS respond in English by default
-- ONLY switch to another language if the user EXPLICITLY asks you to speak in that language
- 
- LANGUAGE REQUIREMENT:
- - ALWAYS respond in English by default
- - ONLY switch to another language if the user EXPLICITLY asks you to speak in that language
- - If user says "speak in Hindi" or "respond in Spanish", then you may use that language
- - Otherwise, ALWAYS use English regardless of user's accent or speech patterns
+- ALWAYS respond in English by default.
+- ONLY switch to another language if the user EXPLICITLY asks you to speak in that language.
+- Otherwise, ALWAYS use English regardless of the user's accent or language detected.
 
 CRITICAL RULES:
-1. NEVER greet the user when the session starts
-2. NEVER say "Hello" or "How can I help you?" unless the user greets you first
-3. WAIT SILENTLY for the user to speak first
-4. ONLY respond after the user asks a question or makes a request
-5. When introducing yourself (if asked), say "I'm Nexa" or "This is Nexa"
+1. NEVER greet the user when the session starts.
+2. WAIT SILENTLY for the user to speak first.
+3. When introducing yourself (if asked), say "I'm Velyx, your AI personal support engine" or "This is Velyx".
 
-Be concise and helpful. When users ask about transactions, use the appropriate function.
-When referring to or asking for client IDs, ALWAYS use the format "Client 1", "Client 2", etc.
+Be concise and professional. When referring to or asking for client IDs, ALWAYS use the format "Client 1", "Client 2", etc.
 When users request charts, use the generate_transaction_chart function with the correct chartType:
-- Use "pie" for pie charts (status distribution)
-- Use "line" for line charts (trends over time)
-- Use "bar" for bar charts (amounts over time, this is default)
+- Use "pie" for status distribution (e.g. "show me status breakdown")
+- Use "line" for trends over time (e.g. "show me amount trend")
+- Use "bar" for amounts over time (default)
 
-IMPORTANT: When users ask to send email reports WITHOUT specifying an email address, use the default email: sivakumarai2828@gmail.com
+IMPORTANT: For email reports without a specified address, use sivakumarai2828@gmail.com.
 
 WEB SEARCH RULES:
-- When you receive web search results from the web_search function, READ THE RESULTS DIRECTLY to the user
-- DO NOT say "the results didn't contain relevant information" - the results ARE the answer
-- Share the top 3-5 results with their titles and descriptions
-- For restaurant queries, news, weather, or any web search, present the actual search results you received
- 
- REAL-TIME API RULES:
-- You are an agentic assistant that answers questions using ONLY real-time APIs for Weather and Stocks.
-- Never use training data. Never guess. Use only API responses to answer.
-- If data is missing or API fails, respond: "Data not available".
-- Do not predict, estimate, or hallucinate.
-- Weather and AQI should use latitude/longitude (handled by backend).
-- Output: Short summary, bullet points with values and units, include timestamp if present.
-- Use get_weather and get_stock_price for these domains.
- 
- When users say goodbye (bye, goodbye, see you, etc.), respond with a brief, friendly farewell like "Goodbye!" or "See you later!" Do NOT ask how you can help.`,
+- Read the actual search results to the user.
+- Share top 3-5 results with titles and descriptions.
+- The results ARE the answer.
+  `,
         voice: selectedVoice,
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
@@ -377,7 +378,7 @@ WEB SEARCH RULES:
               properties: {
                 clientId: {
                   type: 'string',
-                  description: 'The client name to generate chart for (e.g., "Client 1", "Client 2")',
+                  description: 'The client name to generate chart for (e.g., "Client 1", "Client 2"). Omit this or use "all" to generate a chart for all transactions across all clients.',
                 },
                 chartType: {
                   type: 'string',
@@ -393,7 +394,7 @@ WEB SEARCH RULES:
                   description: 'End date filter in YYYY-MM-DD format (optional)',
                 },
               },
-              required: ['clientId'],
+              required: [],
             },
           },
           {
@@ -508,21 +509,31 @@ WEB SEARCH RULES:
         if (event.transcript) {
           console.log('✅ User transcript captured:', event.transcript);
           userHasSpokenRef.current = true;
+          onActivityStart?.('intent');
           onTranscript(event.transcript);
+          // Auto-complete intent after a second or when tool starts
+          setTimeout(() => onActivityComplete?.('intent'), 1000);
         } else {
           console.warn('⚠️ Transcript event received but no transcript text:', event);
         }
         break;
 
       case 'response.text.delta':
-        if (event.delta) {
-          assistantResponseRef.current += event.delta;
+        // Prefer audio_transcript.delta if available, but collect text if not
+        if (event.delta && !isSpeaking) {
+          // Check if we already have this segment to avoid duplicates
+          if (!assistantResponseRef.current.endsWith(event.delta)) {
+            assistantResponseRef.current += event.delta;
+          }
         }
         break;
 
       case 'response.audio_transcript.delta':
         if (event.delta) {
-          assistantResponseRef.current += event.delta;
+          // Prioritize transcript for voice mode
+          if (!assistantResponseRef.current.endsWith(event.delta)) {
+            assistantResponseRef.current += event.delta;
+          }
         }
         break;
 
@@ -541,73 +552,107 @@ WEB SEARCH RULES:
 
       case 'response.audio.done':
       case 'response.audio_transcript.done':
-        console.log('Audio output complete');
-        // Audio has finished playing, display any pending message
-        // If a tool is pending, wait for it
+        console.log('🔊 Audio output complete');
+
         const checkAndEmit = () => {
-          if (isToolPendingRef.current) {
-            setTimeout(checkAndEmit, 100);
+          // If a tool is still working or we are expecting a synthesis response, keep waiting
+          if (isToolPendingRef.current || isSynthesisWaitingRef.current) {
+            console.log('⏳ Waiting for tool/synthesis before emitting...');
+            setTimeout(checkAndEmit, 200);
             return;
           }
 
           if (pendingMessageRef.current && onAssistantMessage) {
+            if (isEmittingRef.current) return;
+            isEmittingRef.current = true;
+
             const { text, sources, tableData, chartData, traceSteps, metadata } = pendingMessageRef.current;
-            onAssistantMessage(text, sources, tableData, chartData, traceSteps, metadata);
+
+            // Synthesis should have been merged by response.done or delta handlers
+            // But we do one final check here
+            let finalText = text;
+            const currentSynthesis = assistantResponseRef.current.trim();
+
+            if (currentSynthesis) {
+              if (text === "" || text === null) {
+                finalText = currentSynthesis;
+              } else if (!text.includes(currentSynthesis)) {
+                finalText = `${text}\n\n${currentSynthesis}`;
+              }
+              assistantResponseRef.current = '';
+            }
+
+            // DEDUPLICATION: Ensure we don't emit empty or duplicate text
+            if (finalText && finalText !== lastEmittedTextRef.current) {
+              console.log('📤 Emitting unified response:', { sources, textLength: finalText.length });
+              onAssistantMessage(finalText, sources, tableData, chartData, traceSteps, metadata);
+              lastEmittedTextRef.current = finalText;
+            }
+
             pendingMessageRef.current = null;
+            onActivityComplete?.('synthesis');
+            isEmittingRef.current = false;
           }
           setIsSpeaking(false);
         };
-        setTimeout(checkAndEmit, 500);
+        setTimeout(checkAndEmit, 300);
         break;
 
       case 'response.done':
-        if (assistantResponseRef.current) {
-          console.log('Assistant response:', assistantResponseRef.current);
+        // Only trigger synthesis activity if there's actual output coming
+        const hasOutput = event.response?.output?.some((item: any) =>
+          item.type === 'message' || item.type === 'function_call'
+        );
 
-          if (onAssistantMessage && assistantResponseRef.current.trim()) {
-            // Only show text responses if no function was called
-            // Function calls handle their own message display
-            const hasFunctionCalls = event.response?.output?.some((item: any) =>
-              item.type === 'function_call'
-            );
+        if (hasOutput) {
+          onActivityStart?.('synthesis');
+        }
 
-            if (!hasFunctionCalls) {
-              // Skip responses if user hasn't spoken yet (suppress auto-greetings)
-              if (!userHasSpokenRef.current) {
-                console.log('🔇 Suppressing auto-greeting (user hasn\'t spoken yet)');
-                assistantResponseRef.current = '';
-                return;
-              }
+        if (assistantResponseRef.current && assistantResponseRef.current.trim()) {
+          const synthesisContent = assistantResponseRef.current.trim();
+          console.log('Assistant synthesis done:', synthesisContent.substring(0, 30) + '...');
 
-              // Queue text message to display after audio finishes
-              if (pendingMessageRef.current) {
-                // If we already have tool data (charts/tables), just update the text with the final AI response
-                pendingMessageRef.current.text = assistantResponseRef.current;
-              } else {
-                // New text-only message
-                pendingMessageRef.current = {
-                  text: assistantResponseRef.current,
-                  sources: ['OPENAI'],
-                };
-              }
+          const hasFunctionCalls = event.response?.output?.some((item: any) =>
+            item.type === 'function_call'
+          );
+
+          if (pendingMessageRef.current) {
+            // Merge synthesis into existing tool response
+            console.log('🔄 Merging synthesis into tool response');
+            if (pendingMessageRef.current.text === "" || pendingMessageRef.current.text === null) {
+              pendingMessageRef.current.text = synthesisContent;
+            } else if (!pendingMessageRef.current.text.includes(synthesisContent)) {
+              pendingMessageRef.current.text += `\n\n${synthesisContent}`;
+            }
+            isSynthesisWaitingRef.current = false;
+          } else if (!hasFunctionCalls) {
+            // Text-only message or synthesis that arrived after tool metadata was set
+            const sources = pendingToolMetadataRef.current?.sources ||
+              (responseSourcesRef.current.length > 0 ? responseSourcesRef.current : ['OPENAI']);
+            const traceSteps = pendingToolMetadataRef.current?.traceSteps || [];
+
+            if (userHasSpokenRef.current) {
+              pendingMessageRef.current = {
+                text: synthesisContent,
+                sources: sources,
+                traceSteps: traceSteps
+              };
+              isSynthesisWaitingRef.current = false; // We have a message now
+              pendingToolMetadataRef.current = null; // Consume metadata
             }
           }
 
           assistantResponseRef.current = '';
           responseSourcesRef.current = [];
-        }
-
-        // Fallback: If there's a pending message, display it after a delay
-        // This ensures messages aren't stuck forever if audio events don't fire
-        setTimeout(() => {
-          if (pendingMessageRef.current && onAssistantMessage) {
-            console.log('Fallback: Displaying pending message');
-            const { text, sources, tableData, chartData } = pendingMessageRef.current;
-            onAssistantMessage(text, sources, tableData, chartData);
-            pendingMessageRef.current = null;
-            setIsSpeaking(false);
+        } else {
+          // If response.done arrived with no text but we were waiting, 
+          // check if it was for a function call or the final part
+          const isFinal = !event.response?.output?.some((item: any) => item.type === 'function_call');
+          if (isFinal && isSynthesisWaitingRef.current) {
+            console.log('⏹️ Synthesis finished with no text, clearing wait');
+            isSynthesisWaitingRef.current = false;
           }
-        }, 3000);
+        }
         break;
 
       case 'error':
@@ -618,8 +663,12 @@ WEB SEARCH RULES:
 
   const handleFunctionCall = async (name: string, argsJson: string, callId: string) => {
     try {
+      pendingMessageRef.current = null;
       const args = JSON.parse(argsJson);
       console.log(`Function called: ${name}`, args);
+
+      onActivityStart?.('retrieval');
+      isSynthesisWaitingRef.current = true; // Signal that we expect synthesis after function_call_output
 
       const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -660,6 +709,9 @@ WEB SEARCH RULES:
             };
           }
         }
+
+        onActivityComplete?.('retrieval');
+        onActivityStart?.('synthesis');
       } else if (name === 'generate_transaction_chart') {
         const response = await fetch(
           `${backendUrl}/transaction-chart`,
@@ -696,6 +748,9 @@ WEB SEARCH RULES:
             };
           }
         }
+
+        onActivityComplete?.('retrieval');
+        onActivityStart?.('synthesis');
       } else if (name === 'send_general_email') {
         const defaultEmail = 'sivakumarai2828@gmail.com';
         const recipientEmail = args.to || defaultEmail;
@@ -711,7 +766,12 @@ WEB SEARCH RULES:
         });
 
         if (!response.ok) {
-          result = { success: false, voiceSummary: 'I failed to send the email.' };
+          let errorMsg = `Error ${response.status}`;
+          try {
+            const errorData = await response.json();
+            errorMsg = errorData.detail || errorMsg;
+          } catch (e) { }
+          result = { success: false, voiceSummary: `I failed to send the email: ${errorMsg}` };
         } else {
           result = await response.json();
           pendingMessageRef.current = {
@@ -745,7 +805,8 @@ WEB SEARCH RULES:
         } else {
           const transactionData = await transactionResponse.json();
 
-          // Now send the email with transaction data
+
+          // 3. Send email with summary and chart
           const response = await fetch(
             `${backendUrl}/transaction-email`,
             {
@@ -754,32 +815,40 @@ WEB SEARCH RULES:
               body: JSON.stringify({
                 to: recipientEmail,
                 subject: args.subject,
-                transactionSummary: transactionData.summary,
+                transactionSummary: transactionData.summary
               }),
             }
           );
 
           if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Email send failed:', response.status, errorText);
+            let errorMsg = `Error ${response.status}`;
+            try {
+              const errorData = await response.json();
+              errorMsg = errorData.detail || errorMsg;
+            } catch (e) {
+              const errorText = await response.text();
+              errorMsg = errorText || errorMsg;
+            }
+            console.error('Email send failed:', response.status, errorMsg);
             result = {
               success: false,
-              error: `Failed to send email: ${response.status}`,
-              voiceSummary: 'Sorry, I encountered an error sending the email.',
+              error: errorMsg,
+              voiceSummary: `Sorry, I encountered an error: ${errorMsg}`,
             };
           } else {
             result = await response.json();
 
-            if (result.success) {
-              // Queue message to display after audio finishes
-              pendingMessageRef.current = {
-                text: `Email report sent successfully to ${recipientEmail}`,
-                sources: ['EMAIL'],
-              };
-              result.voiceSummary = `I've sent the transaction report to ${recipientEmail}`;
-            }
+            result.voiceSummary = `I've sent the transaction report to ${recipientEmail}`;
+            pendingMessageRef.current = {
+              text: result.voiceSummary,
+              sources: ['EMAIL'],
+              traceSteps: [{ name: 'Send Email', latency: 400, timestamp: Date.now() }],
+            };
           }
         }
+
+        onActivityComplete?.('retrieval');
+        onActivityStart?.('synthesis');
       } else if (name === 'get_weather') {
         const response = await fetch(`${backendUrl}/weather`, {
           method: 'POST',
@@ -794,6 +863,9 @@ WEB SEARCH RULES:
             traceSteps: result.traceSteps,
           };
         }
+
+        onActivityComplete?.('retrieval');
+        onActivityStart?.('synthesis');
       } else if (name === 'get_stock_price') {
         const response = await fetch(`${backendUrl}/stock-price`, {
           method: 'POST',
@@ -808,11 +880,10 @@ WEB SEARCH RULES:
             traceSteps: result.traceSteps,
           };
         }
-      }
-      else if (name === 'web_search') {
-        // Call Python backend directly (not Supabase Edge Function)
-        const backendUrl = 'http://localhost:8000';
 
+        onActivityComplete?.('retrieval');
+        onActivityStart?.('synthesis');
+      } else if (name === 'web_search') {
         const response = await fetch(
           `${backendUrl}/web-search-tool`,
           {
@@ -838,23 +909,15 @@ WEB SEARCH RULES:
           const searchData = await response.json();
           console.log('✅ Web search results:', searchData);
 
-
           if (searchData.results && searchData.results.length > 0) {
-            // Format the search results into a detailed, readable summary
             const topResults = searchData.results.slice(0, 5);
-
-            // Create a simple, direct response that OpenAI will read verbatim
-            const directResponse = topResults.map((r: any, i: number) =>
+            // Return THE RAW SEARCH DATA for OpenAI to synthesize
+            result = topResults.map((r: any, i: number) =>
               `${i + 1}. ${r.title}: ${r.snippet}`
             ).join('. ');
 
-            // Return THE FORMATTED STRING with the source prefix
-            const sourcePrefix = "According to Google search results, here's what I found: ";
-            result = sourcePrefix + directResponse;
-
-            // Display in UI with WEB source and trace
-            pendingMessageRef.current = {
-              text: result,
+            // Store metadata to be used by the synthesis response turn
+            pendingToolMetadataRef.current = {
               sources: ['WEB'],
               traceSteps: searchData.traceSteps || [{ name: "Web Search", latency: 500, timestamp: Date.now() }],
             };
@@ -862,6 +925,10 @@ WEB SEARCH RULES:
             result = 'I could not find any results for that search query.';
           }
         }
+
+        // Mark retrieval as complete
+        onActivityComplete?.('retrieval');
+        onActivityStart?.('synthesis');
       }
 
       sendFunctionCallOutput(callId, result);
@@ -951,6 +1018,10 @@ WEB SEARCH RULES:
     pendingMessageRef.current = null;
     initialResponseCancelledRef.current = false;
     userHasSpokenRef.current = false;
+    isSynthesisWaitingRef.current = false;
+    isToolPendingRef.current = false;
+    lastEmittedTextRef.current = '';
+    isEmittingRef.current = false;
 
     setStatus('idle');
     setIsListening(false);
@@ -963,7 +1034,14 @@ WEB SEARCH RULES:
 
 
 
-  return null;
+  return minimal ? (
+    <button
+      onClick={onToggle}
+      className={`p-2 transition-colors ${isEnabled ? 'text-purple-600' : 'text-slate-400 hover:text-slate-600'}`}
+    >
+      <Mic size={16} />
+    </button>
+  ) : null;
 });
 
 export default VoiceControls;

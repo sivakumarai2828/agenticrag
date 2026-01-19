@@ -1,26 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @apply antialiased text-slate-800 min-h-screen relative overflow-hidden;
+    background: #FDFDFF;
+    background-image:
+      radial-gradient(at 0% 0%, rgba(235, 241, 255, 1) 0, transparent 50%),
+      radial-gradient(at 50% 0%, rgba(244, 242, 255, 1) 0, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(255, 245, 240, 1) 0, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  /* Refined mesh gradient logic for the clean look */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background:
+      radial-gradient(circle at 10% 20%, rgba(67, 130, 244, 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 90% 10%, rgba(167, 139, 250, 0.05) 0%, transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(255, 159, 67, 0.04) 0%, transparent 40%);
+    pointer-events: none;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-white/40 backdrop-blur-2xl border-white/50 border;
+  }
+
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-xl border border-white/40;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.02);
+  }
+
+  .glass-card:hover {
+    @apply shadow-md;
+  }
+
+  .task-card {
+    @apply bg-white/90 border border-[#F0EDFF] hover:border-purple-200 transition-all duration-300;
+  }
+
+  .terminal-input {
+    @apply bg-white border border-slate-200 rounded-2xl focus-within:ring-2 focus-within:ring-purple-200 transition-all duration-300;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-slate-200/50 rounded-full hover:bg-slate-300;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
+@keyframes pulse-soft {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+
 .animate-fadeIn {
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.animation-delay-200 {
-  animation-delay: 0.2s;
+.animate-pulse-soft {
+  animation: pulse-soft 4s ease-in-out infinite;
 }
 
-.animation-delay-400 {
-  animation-delay: 0.4s;
+@keyframes bounce-x {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-bounce-x {
+  animation: bounce-x 1s infinite alternate;
+}
+
+/* Velyx Core Animations */
+@keyframes velyx-float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+.animate-velyx-float {
+  animation: velyx-float 8s ease-in-out infinite;
+}
+
+@keyframes velyx-orb {
+
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+    filter: blur(0px);
+  }
+
+  50% {
+    opacity: 0.1;
+    transform: scale(1.5);
+    filter: blur(4px);
+  }
+}
+
+.animate-velyx-orb {
+  animation: velyx-orb 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
