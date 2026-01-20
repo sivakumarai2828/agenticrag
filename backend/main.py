@@ -161,7 +161,7 @@ def classify_intent(query: str) -> str:
     # Greetings should be general
     if re.search(r'\b(hi|hello|hey|greetings|morning|afternoon|evening)\b', lower_query) and len(lower_query.split()) < 5:
         return "general"
-    
+
     if re.search(r'\b(how|what|why|explain|documentation|docs|guide|tutorial|policy|policies|operation|operations|rag|knowledge|context|retrieval)\b', lower_query):
         # Exclude common polite phrases from doc_rag
         if not re.search(r'\b(how are you|how it going|how are things|what is up|what\'s up)\b', lower_query):
@@ -828,6 +828,8 @@ async def logic_weather(request: WeatherRequest):
 
 async def logic_stock_price(request: StockRequest):
     api_key = os.environ.get("RAPID_API_KEY") or "e9f0f744c6msh529a2d656a6983bp1920c7jsn6f7b8229b6e6"
+    # User provided: yahoo-finance166.p.rapidapi.com
+    # Discovered endpoint: /api/stock/get-financial-data
     url = "https://yahoo-finance166.p.rapidapi.com/api/stock/get-financial-data"
     querystring = {"symbol": request.symbols, "region": "US"}
     headers = {
@@ -842,6 +844,7 @@ async def logic_stock_price(request: StockRequest):
         response.raise_for_status()
         data = response.json()
         
+        # Parse based on raw structure: data['quoteSummary']['result'][0]['financialData']['currentPrice']['raw']
         q_summary = data.get("quoteSummary", {})
         results = q_summary.get("result", [])
         
@@ -856,6 +859,7 @@ async def logic_stock_price(request: StockRequest):
         price = price_obj.get("raw")
         
         if price is None:
+             # Try price summary structure if financialData failed
              price_data = first_result.get("price", {})
              price = price_data.get("regularMarketPrice", {}).get("raw")
              
@@ -964,7 +968,7 @@ async def endpoint_openai_session(voice: str = "alloy", instructions: Optional[s
         "modalities": ["text", "audio"],
         "turn_detection": {
             "type": "server_vad",
-            "threshold": 0.7,
+            "threshold": 0.5,
             "prefix_padding_ms": 300,
             "silence_duration_ms": 500,
         }
@@ -1100,6 +1104,7 @@ async def endpoint_agent_orchestrator(request: AgentRequest):
         elif intent == "stock":
             steps.append({"name": "Stock API", "latency": 0, "timestamp": time.time() * 1000})
             step_start = time.time()
+            # Extract ticker - look for capitalized words or explicit ticker mentions
             ticker_match = re.search(r'\$?([A-Z]{1,5})\b', request.query) or re.search(r'stock\s+(?:of\s+)?([a-zA-Z]{1,5})', request.query, re.IGNORECASE)
             ticker = ticker_match.group(1).upper() if ticker_match else "AAPL"
             result = await logic_stock_price(StockRequest(symbols=ticker))
@@ -1115,7 +1120,7 @@ async def endpoint_agent_orchestrator(request: AgentRequest):
             result = await logic_web_search(WebSearchRequest(query=request.query))
             
             response_data["content"] = result["answer"]
-            response_data["citations"] = result.get("results", [])
+            response_data["citations"] = result["results"]
             response_data["sources"] = ["WEB"]
             steps[-1]["latency"] = (time.time() - step_start) * 1000
             
@@ -1140,8 +1145,11 @@ async def endpoint_agent_orchestrator(request: AgentRequest):
         response_data["metadata"]["totalLatency"] = total_latency
         response_data["metadata"]["timestamp"] = time.time() * 1000
         
+        # Save to Supabase messages if conversationId exists
+        # Save to Supabase messages if conversationId exists and is valid UUID
         if request.conversationId and supabase:
             try:
+                # Basic UUID validation
                 if len(request.conversationId) == 36 and '-' in request.conversationId:
                     supabase.table("messages").insert({
                         "conversation_id": request.conversationId,
@@ -1161,10 +1169,15 @@ async def endpoint_agent_orchestrator(request: AgentRequest):
 
 @app.get("/documents")
 async def get_documents():
+    """
+    Proxy endpoint to fetch documents from Supabase.
+    This bypasses SSL/Mixed Content issues in the browser.
+    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Supabase client not initialized")
     
     try:
+        # Fetch unique documents for the table
         response = supabase.table("documents").select("id, title, content, url, created_at, metadata").order("created_at", desc=True).execute()
         return response.data
     except Exception as e:
