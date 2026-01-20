@@ -27,7 +27,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["*"],  # Allow all origins for easier deployment
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,9 +44,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 # Initialize Clients
-SUPABASE_URL = os.environ.get("VITE_SUPABASE_URL")
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
 # Use Service Role Key if available for backend ops (bypasses RLS)
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
@@ -54,6 +54,9 @@ SERPAPI_API_KEY = os.environ.get("SERPAPI_API_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("Warning: Supabase credentials missing.")
+else:
+    print(f"Supabase initialized with URL: {SUPABASE_URL}")
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
 if OPENAI_API_KEY:

@@ -151,7 +151,7 @@ RESEND_API_KEY=re_...
 
 ## 3. CORS Configuration
 
-The backend is configured to allow all origins by default:
+The backend is currently configured to allow all origins by default for a smoother deployment experience:
 
 ```python
 app.add_middleware(
@@ -163,11 +163,7 @@ app.add_middleware(
 )
 ```
 
-**For production**, consider restricting to your frontend domain:
-
-```python
-allow_origins=["https://your-frontend.vercel.app"],
-```
+**Security Note**: For production, you may want to restrict `allow_origins` to your specific frontend URL (e.g., `https://your-app.netlify.app`).
 
 ---
 
