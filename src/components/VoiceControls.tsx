@@ -98,6 +98,16 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
     }
   }, [isEnabled]);
 
+  // Echo Prevention: Mute microphone when AI is speaking
+  useEffect(() => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = !isSpeaking;
+      });
+      console.log(isSpeaking ? '🔇 Echo Prevention: Mic Muted while AI speaks' : '🎤 Mic Active');
+    }
+  }, [isSpeaking]);
+
   useImperativeHandle(ref, () => ({
     connectToOpenAI,
     cleanup,
@@ -131,18 +141,29 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
           streams: event.streams.length
         });
 
-        // CRITICAL: Unmute the track if it's muted
-        if (event.track.muted) {
-          console.log('🔇 Track is muted, attempting to unmute...');
-          // Note: track.muted is read-only, but we can ensure the audio element isn't muted
-        }
-
         // Create or reuse audio element in DOM (helps with autoplay policies)
         let audioElement = document.getElementById('openai-voice-audio') as HTMLAudioElement;
+
+        // Listen for track unmuting (when data starts arriving)
+        event.track.onunmute = () => {
+          console.log('✅ Remote audio track unmuted! Data is now flowing.');
+          if (audioElement && audioElement.paused) {
+            audioElement.play().catch(e => console.error('Play retry failed:', e));
+          }
+        };
+
+        if (event.track.muted) {
+          console.log('🔇 Track is initially muted, waiting for data...');
+        }
         if (!audioElement) {
           audioElement = document.createElement('audio');
           audioElement.id = 'openai-voice-audio';
-          audioElement.style.display = 'none'; // Hidden but in DOM
+          // Use safer invisibility than display: none
+          audioElement.style.position = 'absolute';
+          audioElement.style.width = '1px';
+          audioElement.style.height = '1px';
+          audioElement.style.opacity = '0';
+          audioElement.style.pointerEvents = 'none';
           document.body.appendChild(audioElement);
           console.log('📻 Created audio element in DOM');
         }
@@ -176,12 +197,20 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
           console.error('❌ Audio playback error:', error);
           console.error('Error details:', audioElement.error);
         };
-        audioElement.oncanplay = () => {
-          console.log('✅ Audio can play - buffer ready');
-        };
         audioElement.onloadedmetadata = () => {
           console.log('📝 Audio metadata loaded');
         };
+
+        // Standardize stream assignment
+        if (audioElement.srcObject !== event.streams[0]) {
+          console.log('🔗 Assigning new stream to audio element');
+          audioElement.srcObject = event.streams[0];
+        }
+
+        // Explicitly resume AudioContext if it's suspended
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+          audioContextRef.current.resume();
+        }
 
         // Attempt to play immediately
         audioElement.play().then(() => {
@@ -234,7 +263,13 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
 
   const setupAudioInput = async (pc: RTCPeerConnection) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
       mediaStreamRef.current = stream;
 
       const audioContext = new AudioContext({ sampleRate: 24000 });
@@ -263,7 +298,7 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
     dataChannelRef.current = dc;
 
     dc.addEventListener('open', () => {
-      console.log('Data channel opened');
+      console.log('📡 Data channel opened - sending session update');
       sendSessionUpdate();
     });
 
@@ -509,6 +544,7 @@ WEB SEARCH RULES:
       },
     };
 
+    console.log('📤 Sending session update with configurations...');
     dataChannelRef.current.send(JSON.stringify(sessionUpdate));
   };
 
@@ -516,8 +552,18 @@ WEB SEARCH RULES:
     console.log('OpenAI event:', event.type, event);
     switch (event.type) {
       case 'session.created':
+        console.log('✅ OpenAI Session created:', event.session.id);
+        break;
       case 'session.updated':
-        console.log('Session ready:', event);
+        console.log('✅ OpenAI Session updated successfully');
+        break;
+
+      case 'conversation.item.truncated':
+        console.warn('⚠️ AI Response truncated! (VAD or user interruption)', event);
+        break;
+
+      case 'output_audio_buffer.cleared':
+        console.log('🔇 Output audio buffer cleared - AI playback stopped');
         break;
 
       case 'conversation.item.input_audio_transcription.completed':

@@ -42,6 +42,10 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 # Email Service (optional)
 RESEND_API_KEY=re_...
+
+# Search Service (at least one required for web search)
+SERPAPI_API_KEY=...
+SERPER_API_KEY=...
 ```
 
 ---
@@ -68,6 +72,8 @@ RESEND_API_KEY=re_...
    - `VITE_SUPABASE_URL`: Your Supabase URL
    - `VITE_SUPABASE_ANON_KEY`: Your Supabase Anon Key
    - `RESEND_API_KEY`: Your Resend API Key (for emails)
+   - `SERPAPI_API_KEY`: Your SerpApi Key (for web search)
+   - `SERPER_API_KEY`: Alternative Serper.dev Key (optional)
 
 6. **Deploy**: Render will automatically deploy your backend
 
