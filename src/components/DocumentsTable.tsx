@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Database, RefreshCw, Trash2, ExternalLink, Calendar, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getApiUrl } from '../config/api';
 
 interface Document {
   id: string;
@@ -21,12 +22,13 @@ export default function DocumentsTable() {
     setIsLoading(true);
     setError('');
     try {
-      const { data, error } = await supabase
-        .from('documents')
-        .select('id, title, content, url, created_at, metadata')
-        .order('created_at', { ascending: false });
+      const response = await fetch(getApiUrl('/documents'));
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`Failed to fetch documents: ${response.statusText}`);
+      }
+
+      const data = await response.json();
 
       // Deduplicate by original_title if it exists, otherwise use title
       const uniqueDocs: Document[] = [];
