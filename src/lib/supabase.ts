@@ -1,13 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+let supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+// Auto-fix Mixed Content: Force HTTPS for Supabase URL in production
+if (import.meta.env.PROD && supabaseUrl.startsWith('http://')) {
+  console.warn('⚠️ VITE_SUPABASE_URL is using HTTP in production. Attempting to use HTTPS to avoid Mixed Content errors.');
+  supabaseUrl = supabaseUrl.replace('http://', 'https://');
+}
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('⚠️ Supabase credentials are missing. Please check your .env file or deployment settings (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY).');
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export interface Message {
   id: string;
