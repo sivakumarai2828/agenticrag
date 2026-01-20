@@ -602,6 +602,10 @@ async def logic_web_search(request: WebSearchRequest):
             }
             
             response = requests.get(url, params=params, timeout=10)
+            if not response.ok:
+                print(f"SerpApi error: {response.status_code} {response.text}")
+                raise Exception(f"SerpApi returned {response.status_code}")
+                
             results = response.json()
             organic_results = results.get("organic_results", [])
             
@@ -615,7 +619,7 @@ async def logic_web_search(request: WebSearchRequest):
                 })
             
             if cleaned_results:
-                final_answer = f"According to a Google search, I found the following: {cleaned_results[0]['snippet']}"
+                final_answer = f"According to a Google search, I found the following: {cleaned_results[0].get('snippet', '')}"
             else:
                 final_answer = "I searched Google but couldn't find any relevant results for that query."
             
@@ -637,14 +641,16 @@ async def logic_web_search(request: WebSearchRequest):
                  return {
                     "query": request.query,
                     "results": [],
-                    "answer": f"I encountered an error searching the web: {str(e)}",
+                    "answer": f"I encountered an error searching the web: {str(e)}. Please check if the SerpApi API key is correctly configured in your environment.",
                     "error": str(e),
                     "success": False
                  }
             print("Falling back to Serper API...")
 
     if not SERPER_API_KEY:
-        raise HTTPException(status_code=500, detail="Neither SERPAPI_API_KEY nor SERPER_API_KEY configured")
+        if not SERPAPI_API_KEY:
+            raise HTTPException(status_code=500, detail="Neither SERPAPI_API_KEY nor SERPER_API_KEY configured. Please set these in your environment variables.")
+        raise HTTPException(status_code=500, detail="Web search failed and no fallback available.")
 
     # Serper API endpoint
     url = "https://google.serper.dev/search"
