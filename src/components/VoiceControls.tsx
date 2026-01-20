@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Mic } from 'lucide-react';
+import { getApiUrl } from '../config/api';
 
 interface VoiceControlsProps {
   onTranscript: (text: string) => void;
@@ -51,7 +52,7 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
 
   const responseSourcesRef = useRef<any[]>([]);
   const voiceSessionActiveRef = useRef<boolean>(false);
-  const pendingMessageRef = useRef<{ text: string; sources?: any[]; tableData?: any; chartData?: any; traceSteps?: any[]; metadata?: any } | null>(null);
+  const pendingMessageRef = useRef<{ text: string; sources?: any[]; tableData?: any; chartData?: any; traceSteps?: any[]; metadata?: any; citations?: any[] } | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const initialResponseCancelledRef = useRef<boolean>(false);
   const userHasSpokenRef = useRef<boolean>(false);
@@ -107,8 +108,7 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
     try {
       setStatus('connecting');
 
-      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const sessionUrl = `${backendUrl}/openai-session?voice=${selectedVoice}`;
+      const sessionUrl = getApiUrl(`/openai-session?voice=${selectedVoice}`);
 
       const tokenResponse = await fetch(sessionUrl);
       if (!tokenResponse.ok) {
@@ -489,6 +489,21 @@ WEB SEARCH RULES:
               required: ['symbols'],
             },
           },
+          {
+            type: 'function',
+            name: 'doc_rag',
+            description: 'Query the internal knowledge base for company policies, documentation, and specific information. Use this when users ask detailed questions about the company or operations.',
+            parameters: {
+              type: 'object',
+              properties: {
+                query: {
+                  type: 'string',
+                  description: 'The search query to look up in the knowledge base',
+                }
+              },
+              required: ['query'],
+            },
+          },
         ],
         tool_choice: 'auto',
       },
@@ -670,17 +685,38 @@ WEB SEARCH RULES:
       onActivityStart?.('retrieval');
       isSynthesisWaitingRef.current = true; // Signal that we expect synthesis after function_call_output
 
-      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
       const headers = {
         'Content-Type': 'application/json',
       };
 
       let result: any;
 
-      if (name === 'query_transactions') {
+      if (name === 'doc_rag') {
         const response = await fetch(
-          `${backendUrl}/transaction-query`,
+          getApiUrl('/rag-retrieval'),
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ query: args.query }),
+          }
+        );
+
+        if (!response.ok) {
+          result = { success: false, voiceSummary: 'Failed to retrieve information from the knowledge base.' };
+        } else {
+          result = await response.json();
+          pendingMessageRef.current = {
+            text: result.enhancedResponse || result.voiceSummary,
+            sources: ['VECTOR'],
+            citations: result.documents,
+            traceSteps: result.traceSteps || [{ name: 'Knowledge Retrieval', latency: 450, timestamp: Date.now() }],
+          };
+        }
+        onActivityComplete?.('retrieval');
+        onActivityStart?.('synthesis');
+      } else if (name === 'query_transactions') {
+        const response = await fetch(
+          getApiUrl('/transaction-query'),
           {
             method: 'POST',
             headers,
@@ -714,7 +750,7 @@ WEB SEARCH RULES:
         onActivityStart?.('synthesis');
       } else if (name === 'generate_transaction_chart') {
         const response = await fetch(
-          `${backendUrl}/transaction-chart`,
+          getApiUrl('/transaction-chart'),
           {
             method: 'POST',
             headers,
@@ -755,7 +791,7 @@ WEB SEARCH RULES:
         const defaultEmail = 'sivakumarai2828@gmail.com';
         const recipientEmail = args.to || defaultEmail;
 
-        const response = await fetch(`${backendUrl}/transaction-email`, {
+        const response = await fetch(getApiUrl('/transaction-email'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -788,7 +824,7 @@ WEB SEARCH RULES:
 
         // First, fetch transaction data
         const transactionResponse = await fetch(
-          `${backendUrl}/transaction-query`,
+          getApiUrl('/transaction-query'),
           {
             method: 'POST',
             headers,
@@ -808,7 +844,7 @@ WEB SEARCH RULES:
 
           // 3. Send email with summary and chart
           const response = await fetch(
-            `${backendUrl}/transaction-email`,
+            getApiUrl('/transaction-email'),
             {
               method: 'POST',
               headers,
@@ -850,7 +886,7 @@ WEB SEARCH RULES:
         onActivityComplete?.('retrieval');
         onActivityStart?.('synthesis');
       } else if (name === 'get_weather') {
-        const response = await fetch(`${backendUrl}/weather`, {
+        const response = await fetch(getApiUrl('/weather'), {
           method: 'POST',
           headers,
           body: JSON.stringify(args),
@@ -867,7 +903,7 @@ WEB SEARCH RULES:
         onActivityComplete?.('retrieval');
         onActivityStart?.('synthesis');
       } else if (name === 'get_stock_price') {
-        const response = await fetch(`${backendUrl}/stock-price`, {
+        const response = await fetch(getApiUrl('/stock-price'), {
           method: 'POST',
           headers,
           body: JSON.stringify(args),
@@ -885,7 +921,7 @@ WEB SEARCH RULES:
         onActivityStart?.('synthesis');
       } else if (name === 'web_search') {
         const response = await fetch(
-          `${backendUrl}/web-search-tool`,
+          getApiUrl('/web-search-tool'),
           {
             method: 'POST',
             headers: {

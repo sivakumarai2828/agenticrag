@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Upload, FileText, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { getApiUrl } from '../config/api';
 
 interface DocumentUploadProps {
   onUploadComplete?: () => void;
@@ -29,7 +30,7 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
     setErrorMessage('');
 
     try {
-      const apiUrl = `${import.meta.env.VITE_API_URL}/ingest-document`;
+      const apiUrl = getApiUrl('/ingest-document');
       const headers = {
         'Content-Type': 'application/json',
       };
@@ -88,7 +89,7 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
         const formData = new FormData();
         formData.append('file', file);
 
-        const apiUrl = `${import.meta.env.VITE_API_URL}/extract-pdf`;
+        const apiUrl = getApiUrl('/extract-pdf');
         const response = await fetch(apiUrl, {
           method: 'POST',
           body: formData,
