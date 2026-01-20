@@ -1161,6 +1161,23 @@ async def endpoint_agent_orchestrator(request: AgentRequest):
         print(f"Orchestrator error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/documents")
+async def get_documents():
+    """
+    Proxy endpoint to fetch documents from Supabase.
+    This bypasses SSL/Mixed Content issues in the browser.
+    """
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase client not initialized")
+    
+    try:
+        # Fetch unique documents for the table
+        response = supabase.table("documents").select("id, title, content, url, created_at, metadata").order("created_at", desc=True).execute()
+        return response.data
+    except Exception as e:
+        print(f"Error fetching documents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch documents: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
