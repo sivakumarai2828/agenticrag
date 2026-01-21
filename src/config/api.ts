@@ -10,10 +10,9 @@
 // In development, it defaults to empty string (will use relative URLs if backend is proxied)
 let rawBaseUrl = import.meta.env.VITE_API_URL || '';
 
-// Auto-fix Mixed Content: Force HTTPS for API URL in production
-if (import.meta.env.PROD && rawBaseUrl.startsWith('http://')) {
-    console.warn('⚠️ VITE_API_URL is using HTTP in production. Attempting to use HTTPS to avoid Mixed Content errors.');
-    rawBaseUrl = rawBaseUrl.replace('http://', 'https://');
+// Log configuration for debugging
+if (import.meta.env.PROD) {
+    console.log('📡 API Base URL:', rawBaseUrl);
 }
 
 export const API_BASE_URL = rawBaseUrl.endsWith('/') ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
