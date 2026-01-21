@@ -126,7 +126,7 @@ export default function SimpleApp() {
 
       const response = await processWithAgent({
         query: queryText,
-        conversationId: crypto.randomUUID(),
+        conversationId: generateId(),
         metadata: {
           email: user.email
         }
