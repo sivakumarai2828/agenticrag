@@ -12,6 +12,10 @@ import { WebResult } from './services/mockWeb';
 import { processWithAgent } from './services/agentService';
 import { TransactionSummary } from './services/transactionService';
 import { IntentType } from './router/intentRouter';
+import { useAuth } from './contexts/AuthContext';
+import LoginPage from './components/LoginPage';
+import { LogOut } from 'lucide-react';
+import { generateId } from './utils/id';
 
 interface TraceStep {
   name: string;
@@ -52,7 +56,21 @@ export default function SimpleApp() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDataModal, setShowDataModal] = useState(false);
   const [lastClientId, setLastClientId] = useState<number | null>(null);
+  const [queryCount, setQueryCount] = useState(0);
+  const { user, loading: authLoading, signOut } = useAuth();
   const voiceControlsRef = useRef<any>(null);
+
+  if (authLoading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+        <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
 
   const orbState = useMemo(() => {
     if (isListening) return 'listening';
@@ -71,12 +89,21 @@ export default function SimpleApp() {
     setInput(query);
   };
 
+  const isAdmin = user?.email === 'sivakumarai2828@gmail.com';
+  const queryLimit = 10;
+  const isOverLimit = !isAdmin && queryCount >= queryLimit;
+
   const handleSend = async () => {
     if (!input.trim() || isLoading || isProcessing) return;
 
+    if (isOverLimit) {
+      alert(`You've reached the limit of ${queryLimit} queries for this session. Please contact the administrator for full access.`);
+      return;
+    }
+
     const queryText = input.trim();
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       role: 'user',
       content: queryText,
     };
@@ -101,7 +128,7 @@ export default function SimpleApp() {
         query: queryText,
         conversationId: crypto.randomUUID(),
         metadata: {
-          email: 'sivakumarai2828@gmail.com'
+          email: user.email
         }
       });
 
@@ -115,7 +142,7 @@ export default function SimpleApp() {
       }, 800);
 
       setMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: 'assistant',
         content: response.content,
         intent: response.intent as IntentType,
@@ -128,10 +155,11 @@ export default function SimpleApp() {
 
       setCurrentTraceSteps(response.traceSteps || []);
       setCurrentCitations(response.citations || []);
+      setQueryCount(prev => prev + 1);
     } catch (error) {
       setActiveStepId(null);
       setMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: 'assistant',
         content: 'Sorry, I encountered an error. Please try again.',
       }]);
@@ -160,6 +188,11 @@ export default function SimpleApp() {
 
   const handleVoiceTranscript = async (text: string, skipAgentProcessing: boolean = false) => {
     if (!text.trim() || isLoading) return;
+
+    if (isOverLimit) {
+      alert(`You've reached the limit of ${queryLimit} queries for this session.`);
+      return;
+    }
 
     // Suppress user voice transcripts from the UI entirely per user request
     if (voiceEnabled) return;
@@ -193,7 +226,7 @@ export default function SimpleApp() {
       }
 
       const assistantMessage: Message = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: 'assistant',
         content: response.content,
         intent: response.intent as IntentType,
@@ -205,9 +238,10 @@ export default function SimpleApp() {
 
       setCurrentTraceSteps(response.traceSteps);
       setMessages(prev => [...prev, assistantMessage]);
+      setQueryCount(prev => prev + 1);
     } catch (error) {
       const errorMessage: Message = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: 'assistant',
         content: 'Sorry, I encountered an error.',
       };
@@ -235,7 +269,7 @@ export default function SimpleApp() {
     if (sources?.includes('EMAIL')) finalIntent = 'transaction_email';
 
     const assistantMessage: Message = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       role: 'assistant',
       content: text,
       sources: sources || ['OPENAI'],
@@ -321,6 +355,14 @@ export default function SimpleApp() {
             >
               <Database size={16} className="text-slate-400" />
               <span>Data</span>
+            </button>
+            <button
+              onClick={() => signOut()}
+              className="flex items-center space-x-2 px-4 py-2 bg-white text-slate-600 rounded-xl border border-slate-200/50 text-sm font-bold shadow-sm transition-all hover:bg-red-50 hover:text-red-600 hover:border-red-100"
+              title={`Logged in as ${user.email}`}
+            >
+              <LogOut size={16} />
+              <span className="hidden sm:inline">Logout</span>
             </button>
             <button
               onClick={() => setTraceDrawerOpen(true)}
@@ -426,9 +468,10 @@ export default function SimpleApp() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Ask about documents, live data, transactions, or reports..."
+                  placeholder={isOverLimit ? "Query limit reached..." : "Ask about documents, live data, transactions, or reports..."}
                   rows={1}
-                  className="flex-1 bg-transparent border-none focus:ring-0 text-slate-700 placeholder:text-slate-400 font-bold py-6 text-[15px] resize-none min-h-[70px]"
+                  disabled={isOverLimit}
+                  className="flex-1 bg-transparent border-none focus:ring-0 text-slate-700 placeholder:text-slate-400 font-bold py-6 text-[15px] resize-none min-h-[70px] disabled:opacity-50"
                 />
                 <button
                   onClick={handleSend}
