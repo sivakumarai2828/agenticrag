@@ -4,6 +4,7 @@ import ConfigSidebar from './ConfigSidebar';
 import MessageList from './MessageList';
 import AgenticFlowVisualizer from './AgenticFlowVisualizer';
 import { supabase, Message, UserSettings } from '../lib/supabase';
+import { generateId } from '../utils/id';
 
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -191,7 +192,7 @@ export default function ChatInterface() {
       } : undefined;
 
       return {
-        id: crypto.randomUUID(),
+        id: generateId(),
         conversation_id: currentConversationId || '',
         role: 'assistant',
         content: data.content,
@@ -228,7 +229,7 @@ Would you like more details on any specific aspect?`;
       ]);
 
       return {
-        id: crypto.randomUUID(),
+        id: generateId(),
         conversation_id: currentConversationId || '',
         role: 'assistant',
         content: fallbackContent,
@@ -244,7 +245,7 @@ Would you like more details on any specific aspect?`;
     if (!inputValue.trim() || !currentConversationId) return;
 
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       conversation_id: currentConversationId,
       role: 'user',
       content: inputValue,

@@ -10,6 +10,7 @@ import TraceDrawer from './TraceDrawer';
 import AgenticFlowVisualizer from './AgenticFlowVisualizer';
 import VoiceControls from './VoiceControls';
 import { supabase, Message } from '../lib/supabase';
+import { generateId } from '../utils/id';
 
 export default function EnhancedChatInterface() {
   const { config, persona, exportConfig, importConfig, reset, updateConfig } = useConfig();
@@ -92,17 +93,17 @@ export default function EnhancedChatInterface() {
 
     const evaluationScores = config.safety.enableEvaluation
       ? {
-          relevance: 0.94,
-          grounding: 0.91,
-          faithfulness: 0.89,
-        }
+        relevance: 0.94,
+        grounding: 0.91,
+        faithfulness: 0.89,
+      }
       : undefined;
 
     const tokenCount = 247;
     const estimatedCost = estimateCost(tokenCount);
 
     return {
-      id: crypto.randomUUID(),
+      id: generateId(),
       conversation_id: currentConversationId || '',
       role: 'assistant',
       content: `Based on your question "${userMessage}", I've analyzed the available context and can provide you with comprehensive information. The system successfully retrieved relevant information from multiple sources including product documentation and API guides.
@@ -128,7 +129,7 @@ Would you like me to elaborate on any specific aspect?`,
     if (!inputValue.trim() || !currentConversationId || validationError) return;
 
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       conversation_id: currentConversationId,
       role: 'user',
       content: inputValue,
@@ -189,7 +190,7 @@ Would you like me to elaborate on any specific aspect?`,
     if (!currentConversationId) return;
 
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       conversation_id: currentConversationId,
       role: 'user',
       content: transcript,
@@ -222,12 +223,12 @@ Would you like me to elaborate on any specific aspect?`,
     if (!currentConversationId) return;
 
     const assistantMessage: Message = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       conversation_id: currentConversationId,
       role: 'assistant',
       content: text,
       created_at: new Date().toISOString(),
-      sources: sources || [],
+      retrieval_results: (sources || []).map(s => ({ chunk: s.content || s, score: 1, source: s.metadata?.source || 'Voice' })),
     };
 
     setMessages(prev => [...prev, assistantMessage]);
@@ -403,7 +404,6 @@ Would you like me to elaborate on any specific aspect?`,
           </div>
           <VoiceControls
             onTranscript={handleVoiceTranscript}
-            onResponse={() => {}}
             onAssistantMessage={handleVoiceAssistantMessage}
             isEnabled={isVoiceEnabled}
             onToggle={() => setIsVoiceEnabled(!isVoiceEnabled)}
