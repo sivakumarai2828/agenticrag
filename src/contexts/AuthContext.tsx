@@ -38,8 +38,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const signInWithGoogle = async () => {
-        const redirectTo = window.location.origin;
-        console.log('Signing in with Google, redirecting to:', redirectTo);
+        // Use Netlify URL as preferred redirect if on production, otherwise localhost
+        const redirectTo = window.location.origin.includes('localhost')
+            ? window.location.origin
+            : 'https://nexusvoicechat.netlify.app';
+
+        console.log('🚀 Initiating Google Sign-in. Target Redirect:', redirectTo);
+
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
