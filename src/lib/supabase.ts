@@ -3,14 +3,33 @@ import { createClient } from '@supabase/supabase-js';
 let supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
+// Secondary Cloud Client (e.g. for Auth)
+const supabaseCloudUrl = import.meta.env.VITE_SUPABASE_CLOUD_URL || '';
+const supabaseCloudAnonKey = import.meta.env.VITE_SUPABASE_CLOUD_ANON_KEY || '';
+
 // Log configuration for debugging
-console.log('📡 initialized Supabase with URL:', supabaseUrl);
+console.log('📡 Primary Supabase:', supabaseUrl);
+if (supabaseCloudUrl) console.log('📡 Secondary Supabase (Cloud):', supabaseCloudUrl);
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️ Supabase credentials are missing. Please check your .env file or deployment settings (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY).');
+  console.warn('⚠️ Primary Supabase credentials are missing.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storageKey: 'supabase-primary-auth',
+    persistSession: true,
+  }
+});
+
+export const supabaseCloud = supabaseCloudUrl && supabaseCloudAnonKey
+  ? createClient(supabaseCloudUrl, supabaseCloudAnonKey, {
+    auth: {
+      storageKey: 'supabase-cloud-auth',
+      persistSession: true,
+    }
+  })
+  : supabase; // Fallback to primary if secondary not configured
 
 export interface Message {
   id: string;

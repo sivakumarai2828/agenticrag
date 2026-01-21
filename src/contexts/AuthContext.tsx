@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabaseCloud } from '../lib/supabase';
 import { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -18,15 +18,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        // Get initial session from cloud client
+        supabaseCloud.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
             setUser(session?.user ?? null);
             setLoading(false);
         });
 
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        // Listen for auth changes on cloud client
+        const { data: { subscription } } = supabaseCloud.auth.onAuthStateChange((_event, session) => {
             setSession(session);
             setUser(session?.user ?? null);
             setLoading(false);
@@ -38,14 +38,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const signInWithGoogle = async () => {
-        // Use Netlify URL as preferred redirect if on production, otherwise localhost
-        const redirectTo = window.location.origin.includes('localhost')
-            ? window.location.origin
-            : 'https://nexusvoicechat.netlify.app';
+        // Automatically uses the current origin (e.g., localhost, netlify, etc.)
+        // This allows the same Supabase project to serve multiple apps
+        const redirectTo = window.location.origin;
 
-        console.log('🚀 Initiating Google Sign-in. Target Redirect:', redirectTo);
+        console.log('🚀 Initiating Google Sign-in on Cloud Client. Target Redirect:', redirectTo);
 
-        const { error } = await supabase.auth.signInWithOAuth({
+        const { error } = await supabaseCloud.auth.signInWithOAuth({
             provider: 'google',
             options: {
                 redirectTo,
@@ -59,7 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const signOut = async () => {
-        const { error } = await supabase.auth.signOut();
+        const { error } = await supabaseCloud.auth.signOut();
         if (error) throw error;
     };
 

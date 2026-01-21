@@ -60,18 +60,6 @@ export default function SimpleApp() {
   const { user, loading: authLoading, signOut } = useAuth();
   const voiceControlsRef = useRef<any>(null);
 
-  if (authLoading) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
-        <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <LoginPage />;
-  }
-
   const orbState = useMemo(() => {
     if (isListening) return 'listening';
     if (isSpeaking) return 'speaking';
@@ -84,6 +72,18 @@ export default function SimpleApp() {
     { id: 'retrieval', label: 'Retrieval & Tools', status: completedSteps.includes('retrieval') ? 'completed' : activeStepId === 'retrieval' ? 'active' : 'pending', icon: Search },
     { id: 'synthesis', label: 'Response Synthesis', status: completedSteps.includes('synthesis') ? 'completed' : activeStepId === 'synthesis' ? 'active' : 'pending', icon: Sparkles },
   ], [activeStepId, completedSteps]);
+
+  if (authLoading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+        <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
 
   const handleSidebarTask = (query: string) => {
     setInput(query);
