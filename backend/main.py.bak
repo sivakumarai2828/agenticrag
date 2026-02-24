@@ -13,7 +13,7 @@ from datetime import datetime
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from pathlib import Path
-from openai import OpenAI, AzureOpenAI
+import openai
 import requests
 from serpapi import GoogleSearch
 from pypdf import PdfReader
@@ -59,27 +59,10 @@ else:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
-# OpenAI / Azure OpenAI Configuration
-AZURE_OPENAI_API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
-AZURE_OPENAI_ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT")
-AZURE_OPENAI_DEPLOYMENT = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
-AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.environ.get("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-small")
-
-# Initialize Client
-if AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT:
-    print(f"Using Azure OpenAI Client: {AZURE_OPENAI_ENDPOINT}")
-    client = AzureOpenAI(
-        api_key=AZURE_OPENAI_API_KEY,
-        api_version="2024-02-01",
-        azure_endpoint=AZURE_OPENAI_ENDPOINT
-    )
-    OPENAI_MODEL = AZURE_OPENAI_DEPLOYMENT
-    EMBEDDING_MODEL = AZURE_OPENAI_EMBEDDING_DEPLOYMENT
+if OPENAI_API_KEY:
+    openai.api_key = OPENAI_API_KEY
 else:
-    print("Using Standard OpenAI Client")
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o")
-    EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
+    print("Warning: OPENAI_API_KEY missing.")
 
 # --- Pydantic Models ---
 
@@ -129,7 +112,7 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: List[Message]
-    model: Optional[str] = None
+    model: Optional[str] = "gpt-4o-mini"
     temperature: Optional[float] = 0.7
     max_tokens: Optional[int] = 1000
     stream: Optional[bool] = False
@@ -544,13 +527,13 @@ async def logic_transaction_email(request: EmailRequest):
     }
 
 async def logic_rag_retrieval(request: RAGRequest):
-    if not (OPENAI_API_KEY or AZURE_OPENAI_API_KEY) or not supabase:
+    if not OPENAI_API_KEY or not supabase:
         raise HTTPException(status_code=500, detail="Configuration missing")
         
     # 1. Generate Embedding
     try:
-        emb_response = client.embeddings.create(
-            model=EMBEDDING_MODEL,
+        emb_response = openai.embeddings.create(
+            model="text-embedding-ada-002",
             input=request.query
         )
         query_embedding = emb_response.data[0].embedding
@@ -592,8 +575,8 @@ async def logic_rag_retrieval(request: RAGRequest):
     if request.enhanceWithContext and documents:
         context = "\n\n".join([f"[{i+1}] {doc['title']}\n{doc['content']}" for i, doc in enumerate(documents)])
         
-        chat_completion = client.chat.completions.create(
-            model=OPENAI_MODEL,
+        chat_completion = openai.chat.completions.create(
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant. Answer based on context."},
                 {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {request.query}"}
@@ -727,14 +710,14 @@ async def logic_web_search(request: WebSearchRequest):
         raise HTTPException(status_code=500, detail=f"Web search failed: {str(e)}")
 
 async def logic_openai_chat(request: ChatRequest):
-    if not (OPENAI_API_KEY or AZURE_OPENAI_API_KEY):
+    if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="OpenAI API key missing")
         
     # Convert Pydantic models to dicts for OpenAI API
     messages_dicts = [{"role": m.role, "content": m.content} for m in request.messages]
     
-    response = client.chat.completions.create(
-        model=request.model or OPENAI_MODEL,
+    response = openai.chat.completions.create(
+        model=request.model,
         messages=messages_dicts,
         temperature=request.temperature,
         max_tokens=request.max_tokens
@@ -744,7 +727,7 @@ async def logic_openai_chat(request: ChatRequest):
     return json.loads(response.model_dump_json())
 
 async def logic_ingest_document(request: IngestDocumentRequest):
-    if not (OPENAI_API_KEY or AZURE_OPENAI_API_KEY) or not supabase:
+    if not OPENAI_API_KEY or not supabase:
         raise HTTPException(status_code=500, detail="Configuration missing")
     
     # 1. Chunk the document to avoid token limits (OpenAI max is ~8k for embeddings)
@@ -757,8 +740,8 @@ async def logic_ingest_document(request: IngestDocumentRequest):
     for i, chunk_content in enumerate(chunks):
         # 2. Generate Embedding for each chunk
         try:
-            emb_response = client.embeddings.create(
-                model=EMBEDDING_MODEL,
+            emb_response = openai.embeddings.create(
+                model="text-embedding-ada-002",
                 input=chunk_content
             )
             embedding = emb_response.data[0].embedding
@@ -976,7 +959,7 @@ async def endpoint_extract_pdf(file: UploadFile = File(...)):
 
 @app.get("/openai-session")
 async def endpoint_openai_session(voice: str = "alloy", instructions: Optional[str] = None):
-    if not (OPENAI_API_KEY or AZURE_OPENAI_API_KEY):
+    if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY missing")
     
     url = "https://api.openai.com/v1/realtime/sessions"
