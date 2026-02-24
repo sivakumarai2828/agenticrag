@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Upload, FileText, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { getApiUrl } from '../config/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface DocumentUploadProps {
   onUploadComplete?: () => void;
 }
 
 export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
+  const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [url, setUrl] = useState('');
@@ -42,6 +44,7 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
           title,
           content,
           url: url || undefined,
+          userId: user?.id,
         }),
       });
 

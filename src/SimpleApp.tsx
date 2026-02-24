@@ -1,11 +1,11 @@
-import { useState, KeyboardEvent, useMemo, useRef } from 'react';
+import { useState, KeyboardEvent, useMemo, useRef, useEffect } from 'react';
 import { Send, Upload, X, Database, Scan, Search, Sparkles, Mic } from 'lucide-react';
 import VoiceControls from './components/VoiceControls';
 import ChatThread, { Message } from './components/ChatThread';
 import SimpleTraceDrawer from './components/SimpleTraceDrawer';
 import DocumentUpload from './components/DocumentUpload';
 import AgentActivityPanel, { ActivityStep } from './components/AgentActivityPanel';
-import NexaOrb from './components/NexaOrb';
+import VelixOrb from './components/VelixOrb';
 import DocumentsTable from './components/DocumentsTable';
 import { VectorResult } from './services/mockVector';
 import { WebResult } from './services/mockWeb';
@@ -16,6 +16,7 @@ import { useAuth } from './contexts/AuthContext';
 import LoginPage from './components/LoginPage';
 import { LogOut } from 'lucide-react';
 import { generateId } from './utils/id';
+import { getApiUrl } from './config/api';
 
 interface TraceStep {
   name: string;
@@ -58,7 +59,27 @@ export default function SimpleApp() {
   const [lastClientId, setLastClientId] = useState<number | null>(null);
   const [queryCount, setQueryCount] = useState(0);
   const { user, loading: authLoading, signOut } = useAuth();
+  const isAdmin = user?.email === 'sivakumarai2828@gmail.com';
+  const queryLimit = 5;
+  const isOverLimit = !isAdmin && queryCount >= queryLimit;
   const voiceControlsRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (user && !isAdmin) {
+      const fetchStats = async () => {
+        try {
+          const response = await fetch(getApiUrl(`/user-stats/${user.id}`));
+          if (response.ok) {
+            const data = await response.json();
+            setQueryCount(data.queryCount || 0);
+          }
+        } catch (error) {
+          console.error('Error fetching user stats:', error);
+        }
+      };
+      fetchStats();
+    }
+  }, [user, isAdmin]);
 
   const orbState = useMemo(() => {
     if (isListening) return 'listening';
@@ -89,15 +110,23 @@ export default function SimpleApp() {
     setInput(query);
   };
 
-  const isAdmin = user?.email === 'sivakumarai2828@gmail.com';
-  const queryLimit = 10;
-  const isOverLimit = !isAdmin && queryCount >= queryLimit;
+  const handleUploadClick = () => {
+    if (isAdmin) {
+      setShowUploadModal(true);
+    } else {
+      alert('Document upload is restricted to administrators.');
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading || isProcessing) return;
 
     if (isOverLimit) {
-      alert(`You've reached the limit of ${queryLimit} queries for this session. Please contact the administrator for full access.`);
+      setMessages(prev => [...prev, {
+        id: generateId(),
+        role: 'assistant',
+        content: "You have reached your query limit for today. Please contact the administrator for further access.",
+      }]);
       return;
     }
 
@@ -127,6 +156,7 @@ export default function SimpleApp() {
       const response = await processWithAgent({
         query: queryText,
         conversationId: generateId(),
+        userId: user.id,
         metadata: {
           email: user.email
         }
@@ -155,7 +185,12 @@ export default function SimpleApp() {
 
       setCurrentTraceSteps(response.traceSteps || []);
       setCurrentCitations(response.citations || []);
-      setQueryCount(prev => prev + 1);
+
+      if (response.queryCount !== undefined) {
+        setQueryCount(response.queryCount);
+      } else {
+        setQueryCount(prev => prev + 1);
+      }
     } catch (error) {
       setActiveStepId(null);
       setMessages(prev => [...prev, {
@@ -190,7 +225,24 @@ export default function SimpleApp() {
     if (!text.trim() || isLoading) return;
 
     if (isOverLimit) {
-      alert(`You've reached the limit of ${queryLimit} queries for this session.`);
+      const limitMessage = "You have reached your query limit for today. Please contact the administrator for further access.";
+      console.log(`Query limit reached (${queryCount}/${queryLimit}). Verbalizing notification.`);
+
+      setMessages(prev => [...prev, {
+        id: generateId(),
+        role: 'assistant',
+        content: limitMessage,
+      }]);
+
+      // 1. Speak the limit message
+      voiceControlsRef.current?.speakText(limitMessage);
+
+      // 2. Stop voice session after a delay to allow for audio
+      setTimeout(() => {
+        setVoiceEnabled(false);
+        voiceControlsRef.current?.cleanup();
+      }, 5000);
+
       return;
     }
 
@@ -210,7 +262,11 @@ export default function SimpleApp() {
 
       const response = await processWithAgent({
         query: text,
-        metadata: { lastClientId }
+        userId: user.id,
+        metadata: {
+          lastClientId,
+          email: user.email
+        }
       });
 
       setCompletedSteps(['intent', 'retrieval']);
@@ -238,7 +294,26 @@ export default function SimpleApp() {
 
       setCurrentTraceSteps(response.traceSteps);
       setMessages(prev => [...prev, assistantMessage]);
-      setQueryCount(prev => prev + 1);
+
+      if (response.queryCount !== undefined) {
+        setQueryCount(response.queryCount);
+      } else {
+        setQueryCount(prev => prev + 1);
+      }
+
+      // Stop voice session if limit reached
+      if (!isAdmin && (response.queryCount !== undefined ? response.queryCount : queryCount + 1) >= queryLimit) {
+        const limitMessage = "You have reached your query limit. Please contact the administrator for further access.";
+        console.log(`Limit reached (${(response.queryCount !== undefined ? response.queryCount : queryCount + 1)}/${queryLimit}), speaking limit message...`);
+
+        // Use speakText for verbal notification
+        voiceControlsRef.current?.speakText(limitMessage);
+
+        setTimeout(() => {
+          setVoiceEnabled(false);
+          voiceControlsRef.current?.cleanup();
+        }, 6000); // Increased delay for audio to finish
+      }
     } catch (error) {
       const errorMessage: Message = {
         id: generateId(),
@@ -252,7 +327,7 @@ export default function SimpleApp() {
   };
 
   const handleVoiceAssistantMessage = (text: string, sources?: any[], tableData?: any, chartData?: any, traceSteps?: any[]) => {
-    if (isProcessing) return; // Prevent duplicate if text query is already processing
+    if (isProcessing || isOverLimit) return; // Prevent duplicate or showing response if over limit
 
     let formattedTable;
     let finalIntent: IntentType = 'general';
@@ -276,11 +351,27 @@ export default function SimpleApp() {
       table: formattedTable,
       chart: chartData,
       intent: finalIntent,
-      traceSteps: traceSteps || [{ name: 'Nexa Voice API', latency: 450 }],
+      traceSteps: traceSteps || [{ name: 'Velix Voice API', latency: 450 }],
     };
 
     if (traceSteps) setCurrentTraceSteps(traceSteps);
     setMessages(prev => [...prev, assistantMessage]);
+
+    // Note: Query count for voice is updated via the backend response in handleVoiceTranscript
+
+    // Stop voice session if limit reached
+    if (!isAdmin && queryCount + 1 >= queryLimit) { // Use queryCount + 1 for optimistic check
+      const limitMessage = "You have reached your query limit. Please contact the administrator for further access.";
+      console.log(`Limit reached (${queryCount + 1}/${queryLimit}), speaking limit message...`);
+
+      // Use speakText for verbal notification
+      voiceControlsRef.current?.speakText(limitMessage);
+
+      setTimeout(() => {
+        setVoiceEnabled(false);
+        voiceControlsRef.current?.cleanup();
+      }, 6000); // Increased delay for audio to finish
+    }
   };
 
   return (
@@ -377,7 +468,7 @@ export default function SimpleApp() {
         <div className="flex-1 overflow-y-auto p-10 space-y-12 scroll-smooth custom-scrollbar">
           {orbState !== 'idle' && (
             <div className="flex flex-col items-center justify-center py-24 animate-fadeIn">
-              <NexaOrb state={orbState} audioLevel={audioLevel} />
+              <VelixOrb state={orbState} audioLevel={audioLevel} />
               <p className="mt-8 text-[11px] font-black text-purple-600 uppercase tracking-[0.5em] animate-pulse">
                 {isListening ? 'Synchronizing' : isSpeaking ? 'Broadcasting' : 'Synthesizing'}
               </p>
@@ -389,13 +480,13 @@ export default function SimpleApp() {
               <div className="flex flex-col items-center justify-center py-24 text-center animate-fadeIn">
                 <div className="glass-card rounded-[3rem] p-16 max-w-5xl w-full">
                   <h1 className="text-6xl font-black mb-4 tracking-tighter leading-[1.1] bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 bg-clip-text text-transparent">
-                    Voice-Enabled Agentic AI
+                    Velix - Voice-Enabled Agentic AI
                   </h1>
                   <h2 className="text-4xl font-bold text-slate-700 mb-8 tracking-tight">
                     Grounded, Secure, and Traceable
                   </h2>
                   <p className="text-xl text-slate-500 max-w-2xl mx-auto mb-12 font-medium leading-relaxed">
-                    Query documents, retrieve live data, and execute verified actions — by voice or chat, with full visibility into every step.
+                    Powered by Velix — query documents, retrieve live data, and execute verified actions with full visibility.
                   </p>
 
                   <div className="flex items-center justify-center space-x-6 mb-16">
@@ -405,6 +496,14 @@ export default function SimpleApp() {
                           setVoiceEnabled(false);
                           voiceControlsRef.current?.cleanup();
                         } else {
+                          const limitMessage = "You have reached your query limit for today. Please contact the administrator for further access.";
+                          if (isOverLimit) {
+                            alert(limitMessage);
+                            // Optionally verbalize if they click start while over limit
+                            // but we need to connect first or just show alert.
+                            // For now, alert is safer if not connected.
+                            return;
+                          }
                           setVoiceEnabled(true);
                           setTimeout(() => {
                             voiceControlsRef.current?.connectToOpenAI();
@@ -416,7 +515,7 @@ export default function SimpleApp() {
                       {voiceEnabled ? 'Stop Voice Demo' : 'Start Voice Demo'}
                     </button>
                     <button
-                      onClick={() => setShowUploadModal(true)}
+                      onClick={handleUploadClick}
                       className="px-10 py-4 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-2xl text-lg font-black border border-slate-200 transition-all active:scale-95"
                     >
                       Upload Document
@@ -487,7 +586,7 @@ export default function SimpleApp() {
             <div className="flex items-center justify-between mt-2">
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => setShowUploadModal(true)}
+                  onClick={handleUploadClick}
                   className="flex items-center space-x-2 px-5 py-3 bg-[#F4F4F9] text-slate-600 rounded-xl border border-slate-200 hover:bg-slate-100 transition-all text-[13px] font-black"
                 >
                   <Upload size={18} />
@@ -499,6 +598,14 @@ export default function SimpleApp() {
                       setVoiceEnabled(false);
                       voiceControlsRef.current?.cleanup();
                     } else {
+                      if (isOverLimit) {
+                        setMessages(prev => [...prev, {
+                          id: generateId(),
+                          role: 'assistant',
+                          content: "You have reached your query limit for today. Please contact the administrator for further access.",
+                        }]);
+                        return;
+                      }
                       setVoiceEnabled(true);
                       setTimeout(() => {
                         voiceControlsRef.current?.connectToOpenAI();
@@ -537,7 +644,7 @@ export default function SimpleApp() {
       </aside>
 
       {/* Voice Controls Background Service */}
-      <div className="hidden">
+      <div style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, overflow: 'hidden' }}>
         <VoiceControls
           ref={voiceControlsRef}
           onTranscript={handleVoiceTranscript}

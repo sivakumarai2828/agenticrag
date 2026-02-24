@@ -1,5 +1,3 @@
-import { classifyIntent } from '../router/intentRouter';
-import { queryTransactions, generateTransactionChart } from './transactionService';
 import { getApiUrl, API_ENDPOINTS } from '../config/api';
 
 
@@ -28,64 +26,11 @@ export interface AgentResponse {
   };
   tableData?: any;
   chartData?: any;
+  queryCount?: number;
 }
 
 export async function processWithAgent(request: AgentRequest): Promise<AgentResponse> {
   try {
-    const startTime = Date.now();
-    const intentResult = classifyIntent(request.query);
-
-    console.log('Intent classification:', intentResult);
-
-    if (intentResult.intent === 'transaction_query') {
-      const result = await queryTransactions({
-        query: request.query,
-        ...intentResult.params,
-      });
-
-      return {
-        content: result.voiceSummary,
-        intent: 'transaction_query',
-        sources: ['DB'],
-        citations: [],
-        tableData: result.summary,
-        traceSteps: [
-          { name: 'Intent Classification', latency: 50, timestamp: startTime },
-          { name: 'Transaction Query', latency: 150, timestamp: startTime + 50 },
-        ],
-        metadata: {
-          totalLatency: Date.now() - startTime,
-          timestamp: Date.now(),
-          lastClientId: intentResult.params?.clientId,
-        },
-      };
-    }
-
-    if (intentResult.intent === 'transaction_chart') {
-      const result = await generateTransactionChart({
-        query: request.query,
-        chartType: intentResult.params?.chartType || 'bar',
-        ...intentResult.params,
-      });
-
-      return {
-        content: result.voiceSummary,
-        intent: 'transaction_chart',
-        sources: ['DB'],
-        citations: [],
-        chartData: result.chartData,
-        traceSteps: [
-          { name: 'Intent Classification', latency: 50, timestamp: startTime },
-          { name: 'Chart Generation', latency: 180, timestamp: startTime + 50 },
-        ],
-        metadata: {
-          totalLatency: Date.now() - startTime,
-          timestamp: Date.now(),
-          lastClientId: intentResult.params?.clientId,
-        },
-      };
-    }
-
     const response = await fetch(
       getApiUrl(API_ENDPOINTS.AGENT_ORCHESTRATOR),
       {

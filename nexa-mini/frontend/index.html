@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexa Mini | AI Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i data-lucide="zap"></i>
+                <span>Nexa Mini</span>
+            </div>
+            <nav>
+                <div class="nav-item active">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="nav-item">
+                    <i data-lucide="message-square"></i>
+                    <span>AI Chat</span>
+                </div>
+                <div class="nav-item">
+                    <i data-lucide="settings"></i>
+                    <span>Settings</span>
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="avatar">GK</div>
+                    <div class="user-info">
+                        <span class="user-name">Guest User</span>
+                        <span class="user-status">Online</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header">
+                <h1>Dashboard Overview</h1>
+                <div class="header-actions">
+                    <button class="btn-icon">
+                        <i data-lucide="bell"></i>
+                    </button>
+                    <button class="btn-primary" id="refresh-stats">
+                        <i data-lucide="refresh-cw"></i>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+            </header>
+
+            <section class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <i data-lucide="users" class="icon-users"></i>
+                        <span class="stat-label">Active Users</span>
+                    </div>
+                    <div class="stat-value" id="active-users">-</div>
+                    <div class="stat-change positive">+12% from yesterday</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <i data-lucide="bar-chart-2" class="icon-queries"></i>
+                        <span class="stat-label">Total Queries</span>
+                    </div>
+                    <div class="stat-value" id="total-queries">-</div>
+                    <div class="stat-change positive">+5.4% from yesterday</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <i data-lucide="cpu" class="icon-latency"></i>
+                        <span class="stat-label">API Latency</span>
+                    </div>
+                    <div class="stat-value" id="api-latency">-</div>
+                    <div class="stat-change">Optimized</div>
+                </div>
+            </section>
+
+            <section class="chat-section">
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <i data-lucide="bot"></i>
+                        <span>AI Assistant</span>
+                    </div>
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="message system">Welcome! Ask me anything to see the agentic flow in action.</div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="user-input" placeholder="Type your query here..." autocomplete="off">
+                        <button id="send-btn">
+                            <i data-lucide="send"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="app.js"></script>
+    <script>
+      lucide.createIcons();
+    </script>
+</body>
+</html>

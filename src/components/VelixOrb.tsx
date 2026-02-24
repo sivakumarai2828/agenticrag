@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
 
-interface NexaOrbProps {
+interface VelixOrbProps {
     state: 'idle' | 'listening' | 'thinking' | 'speaking';
     audioLevel?: number; // 0 to 1
     scale?: number;
 }
 
-const NexaOrb: React.FC<NexaOrbProps> = ({ state, audioLevel = 0, scale: manualScale }) => {
+const VelixOrb: React.FC<VelixOrbProps> = ({ state, audioLevel = 0, scale: manualScale }) => {
     const scale = useMemo(() => {
         if (manualScale) return manualScale;
         if (state === 'listening') return 1 + audioLevel * 0.4;
@@ -26,11 +26,11 @@ const NexaOrb: React.FC<NexaOrbProps> = ({ state, audioLevel = 0, scale: manualS
 
     return (
         <div className="relative flex items-center justify-center w-64 h-64 scale-110">
-            {/* Concentric Gravity Rings - v7 Velyx Edition */}
+            {/* Concentric Gravity Rings - v7 Velix Edition */}
             {[1.4, 1.9, 2.4].map((s, i) => (
                 <div
                     key={i}
-                    className={`absolute rounded-full border border-purple-500/10 transition-all duration-1000 ${state !== 'idle' ? 'animate-velyx-orb' : 'opacity-0'
+                    className={`absolute rounded-full border border-purple-500/10 transition-all duration-1000 ${state !== 'idle' ? 'animate-velix-orb' : 'opacity-0'
                         }`}
                     style={{
                         width: `${s * 40}px`,
@@ -96,4 +96,4 @@ const NexaOrb: React.FC<NexaOrbProps> = ({ state, audioLevel = 0, scale: manualS
     );
 };
 
-export default NexaOrb;
+export default VelixOrb;
