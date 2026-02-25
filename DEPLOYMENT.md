@@ -251,18 +251,13 @@ Frontend runs on `http://localhost:5173`
 
 ## 8. Cloud-Agnostic Architecture
 
-This project is designed to be **platform-independent**. You can move from Render/Netlify to Microsoft Foundry (Azure) without changing a single line of code.
+This project is designed to be **platform-independent**. You can move across different cloud providers without changing a single line of code.
 
 ### Portability Key Features:
 1. **Dynamic API Routing**: The frontend uses `src/config/api.ts` to resolve backend URLs via environment variables.
-2. **Stateless Backend**: The FastAPI server is stateless, making it compatible with Serverless (Azure Functions), Managed Containers (Azure Container Apps), or traditional VMs.
+2. **Stateless Backend**: The FastAPI server is stateless, making it compatible with Serverless functions, Managed Containers, or traditional VMs.
 3. **Docker Ready**: We provide a `backend/Dockerfile` so the entire backend can be "pickled" and run on any cloud that supports containers.
-4. **Environment Variable Injection**: All credentials follow the 12-factor app methodology—identically handled across Render, Azure, and AWS.
-
-### Migrating to Azure (Microsoft Foundry):
-- **Frontend**: Deploy to **Azure Static Web Apps**. It will auto-detect the Vite build.
-- **Backend**: Use **Azure Container Apps** and point it to your `backend/` folder. It will use the provided Dockerfile.
-- **Data**: Supabase stays as your database provider, ensuring your data layer is not locked into any specific cloud provider.
+4. **Environment Variable Injection**: All credentials follow the 12-factor app methodology—identically handled across different platforms.
 
 ---
 

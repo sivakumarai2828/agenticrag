@@ -19,5 +19,5 @@ COPY . .
 EXPOSE 8000
 
 # Default command to run the application
-# Using $PORT environment variable for compatibility with Render/Azure
+# Using $PORT environment variable for compatibility with Render and other platforms
 CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
