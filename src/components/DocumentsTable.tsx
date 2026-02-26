@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Database, RefreshCw, Trash2, ExternalLink, Calendar, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getApiUrl } from '../config/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Document {
   id: string;
@@ -16,17 +18,23 @@ export default function DocumentsTable() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
+  const { user } = useAuth();
 
   const fetchDocuments = async () => {
     setIsLoading(true);
     setError('');
     try {
-      const { data, error } = await supabase
-        .from('documents')
-        .select('id, title, content, url, created_at, metadata')
-        .order('created_at', { ascending: false });
+      const url = new URL(getApiUrl('/documents'));
+      if (user?.id) {
+        url.searchParams.append('userId', user.id);
+      }
+      const response = await fetch(url.toString());
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`Failed to fetch documents: ${response.statusText}`);
+      }
+
+      const data = await response.json();
 
       // Deduplicate by original_title if it exists, otherwise use title
       const uniqueDocs: Document[] = [];
@@ -74,7 +82,7 @@ export default function DocumentsTable() {
 
   useEffect(() => {
     fetchDocuments();
-  }, []);
+  }, [user]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

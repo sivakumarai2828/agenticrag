@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Mic } from 'lucide-react';
+import { getApiUrl } from '../config/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface VoiceControlsProps {
   onTranscript: (text: string) => void;
@@ -34,6 +36,7 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
   enableVAD: enableVADProp = true,
   minimal = false,
 }, ref) => {
+  const { user } = useAuth();
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
@@ -51,7 +54,7 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
 
   const responseSourcesRef = useRef<any[]>([]);
   const voiceSessionActiveRef = useRef<boolean>(false);
-  const pendingMessageRef = useRef<{ text: string; sources?: any[]; tableData?: any; chartData?: any; traceSteps?: any[]; metadata?: any } | null>(null);
+  const pendingMessageRef = useRef<{ text: string; sources?: any[]; tableData?: any; chartData?: any; traceSteps?: any[]; metadata?: any; citations?: any[] } | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const initialResponseCancelledRef = useRef<boolean>(false);
   const userHasSpokenRef = useRef<boolean>(false);
@@ -60,6 +63,33 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
   const lastEmittedTextRef = useRef<string>('');
   const isEmittingRef = useRef<boolean>(false);
   const pendingToolMetadataRef = useRef<{ sources: string[]; traceSteps: any[] } | null>(null);
+
+  // Refs for callbacks to avoid stale closures
+  const onTranscriptRef = useRef(onTranscript);
+  const onAssistantMessageRef = useRef(onAssistantMessage);
+  const onActivityStartRef = useRef(onActivityStart);
+  const onActivityCompleteRef = useRef(onActivityComplete);
+  const onConnectionChangeRef = useRef(onConnectionChange);
+  const onStatusChangeRef = useRef(onStatusChange);
+  const onListeningChangeRef = useRef(onListeningChange);
+  const onSpeakingChangeRef = useRef(onSpeakingChange);
+  const onAudioLevelChangeRef = useRef(onAudioLevelChange);
+
+  // Update refs when props change
+  useEffect(() => {
+    onTranscriptRef.current = onTranscript;
+    onAssistantMessageRef.current = onAssistantMessage;
+    onActivityStartRef.current = onActivityStart;
+    onActivityCompleteRef.current = onActivityComplete;
+    onConnectionChangeRef.current = onConnectionChange;
+    onStatusChangeRef.current = onStatusChange;
+    onListeningChangeRef.current = onListeningChange;
+    onSpeakingChangeRef.current = onSpeakingChange;
+    onAudioLevelChangeRef.current = onAudioLevelChange;
+  }, [
+    onTranscript, onAssistantMessage, onActivityStart, onActivityComplete,
+    onConnectionChange, onStatusChange, onListeningChange, onSpeakingChange, onAudioLevelChange
+  ]);
 
   useEffect(() => {
     setSelectedVoice(selectedVoiceProp);
@@ -70,20 +100,20 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
   }, [enableVADProp]);
 
   useEffect(() => {
-    onStatusChange?.(status);
-  }, [status, onStatusChange]);
+    onStatusChangeRef.current?.(status);
+  }, [status]);
 
   useEffect(() => {
-    onListeningChange?.(isListening);
-  }, [isListening, onListeningChange]);
+    onListeningChangeRef.current?.(isListening);
+  }, [isListening]);
 
   useEffect(() => {
-    onSpeakingChange?.(isSpeaking);
-  }, [isSpeaking, onSpeakingChange]);
+    onSpeakingChangeRef.current?.(isSpeaking);
+  }, [isSpeaking]);
 
   useEffect(() => {
-    onAudioLevelChange?.(audioLevel);
-  }, [audioLevel, onAudioLevelChange]);
+    onAudioLevelChangeRef.current?.(audioLevel);
+  }, [audioLevel]);
 
   useEffect(() => {
     return () => {
@@ -100,6 +130,36 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
   useImperativeHandle(ref, () => ({
     connectToOpenAI,
     cleanup,
+    speakText: (text: string) => {
+      if (!dataChannelRef.current || dataChannelRef.current.readyState !== 'open') {
+        console.warn('Cannot speak text: Data channel not open');
+        return;
+      }
+
+      console.log('🗣️ AI speaking custom text:', text);
+
+      // 1. Cancel any ongoing response
+      dataChannelRef.current.send(JSON.stringify({ type: 'response.cancel' }));
+
+      // 2. Add the text as a system message/instruction that forces it to be spoken
+      const itemEvent = {
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'system',
+          content: [
+            {
+              type: 'input_text',
+              text: `URGENT: Speak the following message to the user immediately and do not say anything else: "${text}"`
+            }
+          ]
+        }
+      };
+      dataChannelRef.current.send(JSON.stringify(itemEvent));
+
+      // 3. Trigger a manual response
+      dataChannelRef.current.send(JSON.stringify({ type: 'response.create' }));
+    }
   }));
 
 
@@ -107,8 +167,27 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
     try {
       setStatus('connecting');
 
-      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const sessionUrl = `${backendUrl}/openai-session?voice=${selectedVoice}`;
+      const sessionUrl = getApiUrl(`/openai-session?voice=${selectedVoice}`);
+
+      // PRIME AUDIO: Some browsers require a sync play call from a user gesture
+      // We do this here as connectToOpenAI is usually called from an onClick handler
+      let existingAudio = document.getElementById('openai-voice-audio') as HTMLAudioElement;
+      if (!existingAudio) {
+        existingAudio = document.createElement('audio');
+        existingAudio.id = 'openai-voice-audio';
+        existingAudio.style.display = 'none';
+        document.body.appendChild(existingAudio);
+      }
+
+      // Try to resume AudioContext if it exists and is suspended
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume();
+      }
+
+      // Try a silent play to 'unlock' audio
+      existingAudio.play().catch(() => {
+        console.log('🔇 Initial audio prime failed, will try again on track arrival');
+      });
 
       const tokenResponse = await fetch(sessionUrl);
       if (!tokenResponse.ok) {
@@ -142,26 +221,38 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
         if (!audioElement) {
           audioElement = document.createElement('audio');
           audioElement.id = 'openai-voice-audio';
-          audioElement.style.display = 'none'; // Hidden but in DOM
+          // Using style object instead of attribute for better control
+          Object.assign(audioElement.style, {
+            position: 'absolute',
+            width: '1px',
+            height: '1px',
+            opacity: '0.01',
+            pointerEvents: 'none'
+          });
           document.body.appendChild(audioElement);
           console.log('📻 Created audio element in DOM');
         }
 
         audioElement.autoplay = true;
-        audioElement.volume = 1.0; // Ensure volume is at maximum
-        audioElement.muted = false; // CRITICAL: Ensure audio element is NOT muted
-        audioElement.srcObject = event.streams[0];
+        audioElement.controls = false;
+        audioElement.volume = 1.0;
+        audioElement.muted = false;
+
+        // Get the stream
+        const stream = event.streams[0] || new MediaStream([event.track]);
+        audioElement.srcObject = stream;
         audioElementRef.current = audioElement;
 
         console.log('🎚️ Audio element configured:', {
           autoplay: audioElement.autoplay,
           volume: audioElement.volume,
           muted: audioElement.muted,
-          paused: audioElement.paused
+          paused: audioElement.paused,
+          readyState: audioElement.readyState
         });
 
         audioElement.onplay = () => {
-          console.log('🔊 Audio playback started');
+          console.log('🔊 Audio playback started (onplay)');
           setIsSpeaking(true);
         };
         audioElement.onpause = () => {
@@ -178,18 +269,23 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
         };
         audioElement.oncanplay = () => {
           console.log('✅ Audio can play - buffer ready');
+          audioElement.play().catch(err => {
+            console.error('❌ Failed to play() in oncanplay:', err);
+          });
         };
         audioElement.onloadedmetadata = () => {
           console.log('📝 Audio metadata loaded');
+          audioElement.play().catch(err => {
+            console.error('❌ Failed to play() in onloadedmetadata:', err);
+          });
         };
 
-        // Attempt to play immediately
+        // Attempt to play immediately as well
         audioElement.play().then(() => {
-          console.log('✅ Audio play() succeeded');
+          console.log('✅ Initial audio play() succeeded');
         }).catch(err => {
           console.error('❌ Failed to auto-play audio:', err);
-          console.log('💡 User interaction may be required to enable audio playback');
-          console.log('💡 Try clicking anywhere on the page and reconnecting voice');
+          console.log('💡 User interaction might still be restricted. Try clicking the page.');
         });
       };
 
@@ -224,7 +320,7 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
 
       setStatus('connected');
       setIsListening(true);
-      onConnectionChange?.(true);
+      onConnectionChangeRef.current?.(true);
     } catch (error) {
       console.error('Connection error:', error);
       setStatus('error');
@@ -294,7 +390,7 @@ const VoiceControls = forwardRef<any, VoiceControlsProps>(({
       type: 'session.update',
       session: {
         modalities: ['text', 'audio'],
-        instructions: `You are Velyx, a high-performance AI assistant powering Business Intelligence and Transaction Queries. You offer instant, personalized support by processing private knowledge bases, transaction databases, and real-time web data. 
+        instructions: `You are Velix, a high-performance AI assistant powering Business Intelligence and Transaction Queries. You offer instant, personalized support by processing private knowledge bases, transaction databases, and real-time web data. 
 
 CAPABILITIES:
 - Transaction Analysis: Query purchases, refunds, and client-specific data.
@@ -314,7 +410,7 @@ LANGUAGE REQUIREMENT:
 CRITICAL RULES:
 1. NEVER greet the user when the session starts.
 2. WAIT SILENTLY for the user to speak first.
-3. When introducing yourself (if asked), say "I'm Velyx, your AI personal support engine" or "This is Velyx".
+3. When introducing yourself (if asked), say "I'm Velix, your AI personal support engine" or "This is Velix".
 
 Be concise and professional. When referring to or asking for client IDs, ALWAYS use the format "Client 1", "Client 2", etc.
 When users request charts, use the generate_transaction_chart function with the correct chartType:
@@ -489,6 +585,21 @@ WEB SEARCH RULES:
               required: ['symbols'],
             },
           },
+          {
+            type: 'function',
+            name: 'doc_rag',
+            description: 'Query the internal knowledge base for company policies, documentation, and specific information. Use this when users ask detailed questions about the company or operations.',
+            parameters: {
+              type: 'object',
+              properties: {
+                query: {
+                  type: 'string',
+                  description: 'The search query to look up in the knowledge base',
+                }
+              },
+              required: ['query'],
+            },
+          },
         ],
         tool_choice: 'auto',
       },
@@ -509,10 +620,10 @@ WEB SEARCH RULES:
         if (event.transcript) {
           console.log('✅ User transcript captured:', event.transcript);
           userHasSpokenRef.current = true;
-          onActivityStart?.('intent');
-          onTranscript(event.transcript);
+          onActivityStartRef.current?.('intent');
+          onTranscriptRef.current(event.transcript);
           // Auto-complete intent after a second or when tool starts
-          setTimeout(() => onActivityComplete?.('intent'), 1000);
+          setTimeout(() => onActivityCompleteRef.current?.('intent'), 1000);
         } else {
           console.warn('⚠️ Transcript event received but no transcript text:', event);
         }
@@ -562,7 +673,7 @@ WEB SEARCH RULES:
             return;
           }
 
-          if (pendingMessageRef.current && onAssistantMessage) {
+          if (pendingMessageRef.current && onAssistantMessageRef.current) {
             if (isEmittingRef.current) return;
             isEmittingRef.current = true;
 
@@ -585,12 +696,12 @@ WEB SEARCH RULES:
             // DEDUPLICATION: Ensure we don't emit empty or duplicate text
             if (finalText && finalText !== lastEmittedTextRef.current) {
               console.log('📤 Emitting unified response:', { sources, textLength: finalText.length });
-              onAssistantMessage(finalText, sources, tableData, chartData, traceSteps, metadata);
+              onAssistantMessageRef.current(finalText, sources, tableData, chartData, traceSteps, metadata);
               lastEmittedTextRef.current = finalText;
             }
 
             pendingMessageRef.current = null;
-            onActivityComplete?.('synthesis');
+            onActivityCompleteRef.current?.('synthesis');
             isEmittingRef.current = false;
           }
           setIsSpeaking(false);
@@ -605,7 +716,7 @@ WEB SEARCH RULES:
         );
 
         if (hasOutput) {
-          onActivityStart?.('synthesis');
+          onActivityStartRef.current?.('synthesis');
         }
 
         if (assistantResponseRef.current && assistantResponseRef.current.trim()) {
@@ -667,10 +778,8 @@ WEB SEARCH RULES:
       const args = JSON.parse(argsJson);
       console.log(`Function called: ${name}`, args);
 
-      onActivityStart?.('retrieval');
+      onActivityStartRef.current?.('retrieval');
       isSynthesisWaitingRef.current = true; // Signal that we expect synthesis after function_call_output
-
-      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
       const headers = {
         'Content-Type': 'application/json',
@@ -678,9 +787,35 @@ WEB SEARCH RULES:
 
       let result: any;
 
-      if (name === 'query_transactions') {
+      if (name === 'doc_rag') {
         const response = await fetch(
-          `${backendUrl}/transaction-query`,
+          getApiUrl('/rag-retrieval'),
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              query: args.query,
+              userId: user?.id
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          result = { success: false, voiceSummary: 'Failed to retrieve information from the knowledge base.' };
+        } else {
+          result = await response.json();
+          pendingMessageRef.current = {
+            text: result.enhancedResponse || result.voiceSummary,
+            sources: ['VECTOR'],
+            citations: result.documents,
+            traceSteps: result.traceSteps || [{ name: 'Knowledge Retrieval', latency: 450, timestamp: Date.now() }],
+          };
+        }
+        onActivityCompleteRef.current?.('retrieval');
+        onActivityStartRef.current?.('synthesis');
+      } else if (name === 'query_transactions') {
+        const response = await fetch(
+          getApiUrl('/transaction-query'),
           {
             method: 'POST',
             headers,
@@ -710,11 +845,11 @@ WEB SEARCH RULES:
           }
         }
 
-        onActivityComplete?.('retrieval');
-        onActivityStart?.('synthesis');
+        onActivityCompleteRef.current?.('retrieval');
+        onActivityStartRef.current?.('synthesis');
       } else if (name === 'generate_transaction_chart') {
         const response = await fetch(
-          `${backendUrl}/transaction-chart`,
+          getApiUrl('/transaction-chart'),
           {
             method: 'POST',
             headers,
@@ -749,13 +884,13 @@ WEB SEARCH RULES:
           }
         }
 
-        onActivityComplete?.('retrieval');
-        onActivityStart?.('synthesis');
+        onActivityCompleteRef.current?.('retrieval');
+        onActivityStartRef.current?.('synthesis');
       } else if (name === 'send_general_email') {
         const defaultEmail = 'sivakumarai2828@gmail.com';
         const recipientEmail = args.to || defaultEmail;
 
-        const response = await fetch(`${backendUrl}/transaction-email`, {
+        const response = await fetch(getApiUrl('/transaction-email'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -788,7 +923,7 @@ WEB SEARCH RULES:
 
         // First, fetch transaction data
         const transactionResponse = await fetch(
-          `${backendUrl}/transaction-query`,
+          getApiUrl('/transaction-query'),
           {
             method: 'POST',
             headers,
@@ -808,7 +943,7 @@ WEB SEARCH RULES:
 
           // 3. Send email with summary and chart
           const response = await fetch(
-            `${backendUrl}/transaction-email`,
+            getApiUrl('/transaction-email'),
             {
               method: 'POST',
               headers,
@@ -850,7 +985,7 @@ WEB SEARCH RULES:
         onActivityComplete?.('retrieval');
         onActivityStart?.('synthesis');
       } else if (name === 'get_weather') {
-        const response = await fetch(`${backendUrl}/weather`, {
+        const response = await fetch(getApiUrl('/weather'), {
           method: 'POST',
           headers,
           body: JSON.stringify(args),
@@ -867,7 +1002,7 @@ WEB SEARCH RULES:
         onActivityComplete?.('retrieval');
         onActivityStart?.('synthesis');
       } else if (name === 'get_stock_price') {
-        const response = await fetch(`${backendUrl}/stock-price`, {
+        const response = await fetch(getApiUrl('/stock-price'), {
           method: 'POST',
           headers,
           body: JSON.stringify(args),
@@ -885,7 +1020,7 @@ WEB SEARCH RULES:
         onActivityStart?.('synthesis');
       } else if (name === 'web_search') {
         const response = await fetch(
-          `${backendUrl}/web-search-tool`,
+          getApiUrl('/web-search-tool'),
           {
             method: 'POST',
             headers: {

@@ -1,4 +1,4 @@
-export type IntentType = 'doc_rag' | 'sql' | 'report' | 'chart' | 'api_status' | 'web' | 'transaction_query' | 'transaction_chart' | 'transaction_email';
+export type IntentType = 'doc_rag' | 'sql' | 'report' | 'chart' | 'api_status' | 'web' | 'transaction_query' | 'transaction_chart' | 'transaction_email' | 'general';
 
 export interface IntentResult {
   intent: IntentType;
@@ -92,8 +92,8 @@ export function classifyIntent(query: string): IntentResult {
     }
 
     const isChartRequest = containsKeywords(lowerQuery, CHART_KEYWORDS) ||
-                          lowerQuery.includes('trend') ||
-                          lowerQuery.includes('pattern');
+      lowerQuery.includes('trend') ||
+      lowerQuery.includes('pattern');
 
     if (isChartRequest) {
       if (lowerQuery.includes('pie')) {
@@ -129,7 +129,7 @@ export function classifyIntent(query: string): IntentResult {
 
   if (containsKeywords(lowerQuery, CHART_KEYWORDS)) {
     const isNumeric = containsKeywords(lowerQuery, SQL_KEYWORDS) ||
-                     /\d+\s*(days|weeks|months)/.test(lowerQuery);
+      /\d+\s*(days|weeks|months)/.test(lowerQuery);
     return {
       intent: 'chart',
       confidence: 0.85,
@@ -140,8 +140,8 @@ export function classifyIntent(query: string): IntentResult {
 
   if (containsKeywords(lowerQuery, SQL_KEYWORDS)) {
     const isReport = lowerQuery.includes('report') ||
-                    lowerQuery.includes('summary') ||
-                    lowerQuery.includes('breakdown');
+      lowerQuery.includes('summary') ||
+      lowerQuery.includes('breakdown');
 
     return {
       intent: isReport ? 'report' : 'sql',
@@ -163,10 +163,10 @@ export function classifyIntent(query: string): IntentResult {
   }
 
   return {
-    intent: 'doc_rag',
+    intent: 'general',
     confidence: 0.6,
-    sources: ['VECTOR', 'WEB'],
-    reasoning: 'Default RAG with web fallback if vector score < 0.55',
+    sources: ['OPENAI'],
+    reasoning: 'General conversational query',
   };
 }
 

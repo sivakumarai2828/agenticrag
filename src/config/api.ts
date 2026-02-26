@@ -8,7 +8,14 @@
 // Get API base URL from environment variable
 // In production, VITE_API_URL must be set
 // In development, it defaults to empty string (will use relative URLs if backend is proxied)
-export const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+let rawBaseUrl = import.meta.env.VITE_API_URL || '';
+
+// Log configuration for debugging
+if (import.meta.env.PROD) {
+    console.log('📡 API Base URL:', rawBaseUrl);
+}
+
+export const API_BASE_URL = rawBaseUrl.endsWith('/') ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
 
 // Validate that API_BASE_URL is set in production
 if (import.meta.env.PROD && !API_BASE_URL) {

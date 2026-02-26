@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { Upload, FileText, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { getApiUrl } from '../config/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface DocumentUploadProps {
   onUploadComplete?: () => void;
 }
 
 export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
+  const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [url, setUrl] = useState('');
@@ -29,9 +32,8 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
     setErrorMessage('');
 
     try {
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ingest-document`;
+      const apiUrl = getApiUrl('/ingest-document');
       const headers = {
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         'Content-Type': 'application/json',
       };
 
@@ -42,6 +44,7 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
           title,
           content,
           url: url || undefined,
+          userId: user?.id,
         }),
       });
 
@@ -89,12 +92,9 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
         const formData = new FormData();
         formData.append('file', file);
 
-        const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf`;
+        const apiUrl = getApiUrl('/extract-pdf');
         const response = await fetch(apiUrl, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
           body: formData,
         });
 

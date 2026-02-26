@@ -13,7 +13,7 @@ from datetime import datetime
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from pathlib import Path
-from openai import OpenAI
+import openai
 import requests
 from serpapi import GoogleSearch
 from pypdf import PdfReader
@@ -59,12 +59,10 @@ else:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
-# Initialize Client
-OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o")
-EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
-
-print("Using Standard OpenAI Client")
-client = OpenAI(api_key=OPENAI_API_KEY)
+if OPENAI_API_KEY:
+    openai.api_key = OPENAI_API_KEY
+else:
+    print("Warning: OPENAI_API_KEY missing.")
 
 # --- Pydantic Models ---
 
@@ -114,7 +112,7 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: List[Message]
-    model: Optional[str] = None
+    model: Optional[str] = "gpt-4o-mini"
     temperature: Optional[float] = 0.7
     max_tokens: Optional[int] = 1000
     stream: Optional[bool] = False
@@ -137,16 +135,20 @@ class IngestDocumentRequest(BaseModel):
 def classify_intent(query: str) -> str:
     lower_query = query.lower()
     
-    # 1. Specialized Data Intents (High Priority)
-    if re.search(r'\b(weather|temperature|forecast|climate)\b', lower_query) or \
-       re.search(r'\bwhat\'?s\s+(the\s+)?(weather|temperature)\b', lower_query):
-        return "weather"
-        
-    if re.search(r'\b(stock|price|market|ticker|quote)\b', lower_query) or re.search(r'\b[A-Z]{1,5}\b', query):
-        if re.search(r'\b(price|value|worth|stock)\s+of\b', lower_query) or \
-           re.search(r'\b(how\s+is|what\s+is)\b.*\b(trading|stock|price)\b', lower_query):
-            return "stock"
-
+    # Check for web search FIRST (before doc_rag which also matches 'what', 'tutorial', 'guide', etc.)
+    # Include weather, real-time info, and time-sensitive queries
+    if (re.search(r'\b(web|google|latest|news|current|recent|breaking|real-time|realtime|look up|find online|internet)\b', lower_query) or
+        re.search(r'\b(weather|temperature|forecast|climate)\b', lower_query) or
+        re.search(r'\b(now|today|tonight|tomorrow|this week)\b.*\b(weather|temperature|news|events|happening)\b', lower_query) or
+        re.search(r'\bwhat\'?s\s+(the\s+)?(weather|temperature|news|happening)\b', lower_query) or
+        re.search(r'\bsearch\s+(the\s+)?web\b', lower_query) or
+        re.search(r'\bweb\s+search\b', lower_query) or
+        re.search(r'\bfrom\s+(the\s+)?web\b', lower_query) or
+        re.search(r'\bgoogle\s+search\b', lower_query) or
+        (re.search(r'\bsearch\b', lower_query) and re.search(r'\b(latest|news|online|internet)\b', lower_query)) or
+        (re.search(r'\b(latest|recent|current)\b', lower_query) and re.search(r'\bnews\b', lower_query))):
+        return "web"
+    
     if re.search(r'\b(email|send|mail)\b', lower_query) and (re.search(r'\b(report|transaction|above)\b', lower_query) or '@' in lower_query):
         return "transaction_email"
     
@@ -154,27 +156,31 @@ def classify_intent(query: str) -> str:
         if re.search(r'\b(chart|plot|graph|visualize|trend)\b', lower_query):
             return "transaction_chart"
         return "transaction_query"
-
-    # 2. Search & Document Intents
-    if re.search(r'\b(web|google|latest|news|current|recent|breaking|real-time|realtime|look up|find online|internet|search\s+the\s+web|google\s+search)\b', lower_query) or \
-       (re.search(r'\bsearch\b', lower_query) and re.search(r'\b(latest|news|online|internet)\b', lower_query)):
-        return "web"
-
-    if re.search(r'\b(how|what|why|explain|documentation|docs|guide|tutorial|policy|policies|operation|operations|rag|knowledge|context|retrieval|analyze|summarize|summary|describe|content|details|find in|search in)\b', lower_query):
-        if not re.search(r'\b(how are you|how it going|how are things|what is up|what\'s up)\b', lower_query):
-            return "doc_rag"
-
-    # 3. Visualization & Database
+    
     if re.search(r'\b(chart|plot|graph|visualize|trend)\b', lower_query):
         return "chart"
+    
+    # Greetings should be general
+    if re.search(r'\b(hi|hello|hey|greetings|morning|afternoon|evening)\b', lower_query) and len(lower_query.split()) < 5:
+        return "general"
+
+    if re.search(r'\b(how|what|why|explain|documentation|docs|guide|tutorial|policy|policies|operation|operations|rag|knowledge|context|retrieval)\b', lower_query):
+        # Exclude common polite phrases from doc_rag
+        if not re.search(r'\b(how are you|how it going|how are things|what is up|what\'s up)\b', lower_query):
+            return "doc_rag"
+    
+    if re.search(r'\b(weather|temperature|forecast|climate)\b', lower_query):
+        return "weather"
         
+    if re.search(r'\b(stock|price|market|ticker|quote)\b', lower_query) or re.search(r'\b[A-Z]{1,5}\b', query):
+        # Additional check for stock tickers (uppercase 1-5 chars)
+        if re.search(r'\b(price|value|worth|stock)\s+of\b', lower_query) or re.search(r'\b(how\s+is|what\s+is)\b.*\b(trading|stock|price)\b', lower_query):
+            return "stock"
+            
+
     if re.search(r'\b(select|query|show|get|retrieve|find|search|top|merchants|revenue|transactions)\b', lower_query):
         return "sql"
     
-    # 4. Miscellaneous
-    if re.search(r'\b(hi|hello|hey|greetings|morning|afternoon|evening)\b', lower_query) and len(lower_query.split()) < 5:
-        return "general"
-        
     if re.search(r'\b(report|summary|analysis|breakdown)\b', lower_query):
         return "report"
     
@@ -526,8 +532,8 @@ async def logic_rag_retrieval(request: RAGRequest):
         
     # 1. Generate Embedding
     try:
-        emb_response = client.embeddings.create(
-            model=EMBEDDING_MODEL,
+        emb_response = openai.embeddings.create(
+            model="text-embedding-ada-002",
             input=request.query
         )
         query_embedding = emb_response.data[0].embedding
@@ -569,8 +575,8 @@ async def logic_rag_retrieval(request: RAGRequest):
     if request.enhanceWithContext and documents:
         context = "\n\n".join([f"[{i+1}] {doc['title']}\n{doc['content']}" for i, doc in enumerate(documents)])
         
-        chat_completion = client.chat.completions.create(
-            model=OPENAI_MODEL,
+        chat_completion = openai.chat.completions.create(
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant. Answer based on context."},
                 {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {request.query}"}
@@ -710,8 +716,8 @@ async def logic_openai_chat(request: ChatRequest):
     # Convert Pydantic models to dicts for OpenAI API
     messages_dicts = [{"role": m.role, "content": m.content} for m in request.messages]
     
-    response = client.chat.completions.create(
-        model=request.model or OPENAI_MODEL,
+    response = openai.chat.completions.create(
+        model=request.model,
         messages=messages_dicts,
         temperature=request.temperature,
         max_tokens=request.max_tokens
@@ -734,8 +740,8 @@ async def logic_ingest_document(request: IngestDocumentRequest):
     for i, chunk_content in enumerate(chunks):
         # 2. Generate Embedding for each chunk
         try:
-            emb_response = client.embeddings.create(
-                model=EMBEDDING_MODEL,
+            emb_response = openai.embeddings.create(
+                model="text-embedding-ada-002",
                 input=chunk_content
             )
             embedding = emb_response.data[0].embedding
@@ -953,7 +959,7 @@ async def endpoint_extract_pdf(file: UploadFile = File(...)):
 
 @app.get("/openai-session")
 async def endpoint_openai_session(voice: str = "alloy", instructions: Optional[str] = None):
-    if not (OPENAI_API_KEY or AZURE_OPENAI_API_KEY):
+    if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY missing")
     
     url = "https://api.openai.com/v1/realtime/sessions"
@@ -1189,28 +1195,6 @@ async def endpoint_agent_orchestrator(request: AgentRequest):
             steps[-1]["latency"] = (time.time() - step_start) * 1000
             
         else: # General
-            # PRO-ACTIVE RAG: For general queries, try a quick RAG lookup first to see if we have relevant info
-            # but only if the query is reasonably long (not just "hi")
-            if len(request.query.split()) > 3:
-                steps.append({"name": "Agentic RAG Fallback", "latency": 0, "timestamp": time.time() * 1000})
-                step_start = time.time()
-                
-                try:
-                    # Try RAG with a high threshold for "general" queries to avoid noise
-                    rag_result = await logic_rag_retrieval(RAGRequest(
-                        query=request.query,
-                        userId=request.userId,
-                        matchThreshold=0.8
-                    ))
-                    
-                    if rag_result.get("metadata", {}).get("resultsFound", 0) > 0:
-                        response_data["content"] = rag_result["enhancedResponse"]
-                        response_data["sources"] = ["RAG-FALLBACK"]
-                        steps[-1]["latency"] = (time.time() - step_start) * 1000
-                        return response_data
-                except Exception as e:
-                    print(f"RAG Fallback error: {e}")
-            
             steps.append({"name": "OpenAI Chat", "latency": 0, "timestamp": time.time() * 1000})
             step_start = time.time()
             

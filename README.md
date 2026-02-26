@@ -1,10 +1,10 @@
-# 🤖 Voice Agentic RAG
+# 🤖 Velix - Voice Agentic RAG
 
-An intelligent voice-powered transaction query system with **Nexa** - your AI assistant powered by advanced agentic AI, RAG (Retrieval-Augmented Generation), and multi-tool orchestration. Speak naturally to query data, generate charts, send reports, and get real-time information.
+An intelligent voice-powered transaction query system with **Velix** - your AI assistant powered by advanced agentic AI, RAG (Retrieval-Augmented Generation), and multi-tool orchestration. Speak naturally to query data, generate charts, send reports, and get real-time information.
 
 ## 🌟 Features
 
-- **🎙️ Voice-First Interface**: Natural voice conversations with Nexa powered by OpenAI's Realtime API
+- **🎙️ Voice-First Interface**: Natural voice conversations with Velix powered by OpenAI's Realtime API
 - **🤖 Agentic AI System**: Intelligent agent orchestration for complex queries
 - **📊 Multi-Modal Responses**: Tables, charts, and structured data visualization
 - **🔍 RAG Integration**: Retrieval-Augmented Generation for accurate, context-aware responses

@@ -42,6 +42,10 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 # Email Service (optional)
 RESEND_API_KEY=re_...
+
+# Search Service (at least one required for web search)
+SERPAPI_API_KEY=...
+SERPER_API_KEY=...
 ```
 
 ---
@@ -68,6 +72,8 @@ RESEND_API_KEY=re_...
    - `VITE_SUPABASE_URL`: Your Supabase URL
    - `VITE_SUPABASE_ANON_KEY`: Your Supabase Anon Key
    - `RESEND_API_KEY`: Your Resend API Key (for emails)
+   - `SERPAPI_API_KEY`: Your SerpApi Key (for web search)
+   - `SERPER_API_KEY`: Alternative Serper.dev Key (optional)
 
 6. **Deploy**: Render will automatically deploy your backend
 
@@ -151,7 +157,7 @@ RESEND_API_KEY=re_...
 
 ## 3. CORS Configuration
 
-The backend is configured to allow all origins by default:
+The backend is currently configured to allow all origins by default for a smoother deployment experience:
 
 ```python
 app.add_middleware(
@@ -163,11 +169,7 @@ app.add_middleware(
 )
 ```
 
-**For production**, consider restricting to your frontend domain:
-
-```python
-allow_origins=["https://your-frontend.vercel.app"],
-```
+**Security Note**: For production, you may want to restrict `allow_origins` to your specific frontend URL (e.g., `https://your-app.netlify.app`).
 
 ---
 
@@ -247,10 +249,17 @@ Frontend runs on `http://localhost:5173`
 
 ---
 
-## Summary
+## 8. Cloud-Agnostic Architecture
 
-✅ **No hardcoded URLs** - All API endpoints use environment variables  
-✅ **Centralized configuration** - API config in `src/config/api.ts`  
-✅ **Production-ready** - Separate frontend and backend deployments  
-✅ **Easy to maintain** - Change backend URL by updating one environment variable
+This project is designed to be **platform-independent**. You can move across different cloud providers without changing a single line of code.
+
+### Portability Key Features:
+1. **Dynamic API Routing**: The frontend uses `src/config/api.ts` to resolve backend URLs via environment variables.
+2. **Stateless Backend**: The FastAPI server is stateless, making it compatible with Serverless functions, Managed Containers, or traditional VMs.
+3. **Docker Ready**: We provide a `backend/Dockerfile` so the entire backend can be "pickled" and run on any cloud that supports containers.
+4. **Environment Variable Injection**: All credentials follow the 12-factor app methodology—identically handled across different platforms.
+
+---
+
+## Summary
 

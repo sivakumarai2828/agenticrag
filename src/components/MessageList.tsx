@@ -17,7 +17,7 @@ interface MessageListProps {
 export default function MessageList({ messages, isLoading, settings }: MessageListProps) {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {messages.map((message) => (
+      {messages.filter(m => m.role !== 'user').map((message) => (
         <MessageBubble key={message.id} message={message} settings={settings} />
       ))}
       {isLoading && <LoadingMessage settings={settings} />}
@@ -207,9 +207,8 @@ function MessageBubble({ message, settings }: { message: Message; settings: Mess
                         <div className="flex items-center space-x-2">
                           <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
                             <div
-                              className={`h-full rounded-full ${
-                                value >= 0.8 ? 'bg-green-500' : value >= 0.6 ? 'bg-yellow-500' : 'bg-red-500'
-                              }`}
+                              className={`h-full rounded-full ${value >= 0.8 ? 'bg-green-500' : value >= 0.6 ? 'bg-yellow-500' : 'bg-red-500'
+                                }`}
                               style={{ width: `${value * 100}%` }}
                             />
                           </div>
