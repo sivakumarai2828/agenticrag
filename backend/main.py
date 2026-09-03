@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -18,6 +18,8 @@ import requests
 from serpapi import GoogleSearch
 from pypdf import PdfReader
 from io import BytesIO
+from image_edit import edit_image
+from starlette.concurrency import run_in_threadpool
 
 # Load environment variables
 env_path = Path(__file__).parent.parent / '.env'
@@ -315,7 +317,7 @@ async def logic_transaction_chart(request: ChartRequest):
                 print(f"Error parsing date {t['tran_date']}: {e}")
                 continue
             
-        sorted_dates = list(date_groups.keys()) # Already sorted by query order usually, but dict preserves insertion order in modern python
+        sorted_dates = list(date_groups.keys()) # Already sorted by query order usually, but dict preserves insertion order in modern Python
         
         chart_data["data"]["labels"] = sorted_dates
         chart_data["data"]["datasets"] = [{
@@ -644,7 +646,7 @@ async def logic_web_search(request: WebSearchRequest):
                  return {
                     "query": request.query,
                     "results": [],
-                    "answer": f"I encountered an error searching the web: {str(e)}. Please check if the SerpApi API key is correctly configured in your environment.",
+                    "answer": f"I encountered an error searching the web: {str(e)}. Please check if the SerpApi API key is correctly configured in your environment variables.",
                     "error": str(e),
                     "success": False
                  }
@@ -928,6 +930,32 @@ async def endpoint_openai_chat(request: ChatRequest):
 @app.post("/ingest-document")
 async def endpoint_ingest_document(request: IngestDocumentRequest):
     return await logic_ingest_document(request)
+
+@app.post("/image-edit")
+async def endpoint_image_edit(
+    image: UploadFile = File(...),
+    prompt: str = Form(...),
+):
+    """Upload an image and return a Qwen-edited image URL."""
+    if not image.filename:
+        raise HTTPException(status_code=400, detail="Image filename is required")
+
+    content_type = image.content_type or ""
+    if content_type not in {"image/jpeg", "image/png", "image/webp", "image/gif"}:
+        raise HTTPException(status_code=400, detail="Supported image types: JPEG, PNG, WEBP, GIF")
+
+    try:
+        content = await image.read()
+        result = await run_in_threadpool(edit_image, content, content_type, prompt)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        print(f"Image edit provider error: {e}")
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        print(f"Image edit error: {e}")
+        raise HTTPException(status_code=500, detail="Image editing failed")
 
 @app.post("/extract-pdf")
 async def endpoint_extract_pdf(file: UploadFile = File(...)):
@@ -1258,10 +1286,6 @@ async def endpoint_agent_orchestrator(request: AgentRequest):
                 print(f"Failed to increment query count: {e}")
 
         return response_data
-
-    except Exception as e:
-        print(f"Orchestrator error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/user-stats/{user_id}")
 async def get_user_stats(user_id: str):
